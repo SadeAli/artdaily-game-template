@@ -138,21 +138,39 @@
     return 'Most taps landed ' + was + ' — aim ' + fix + ' next round.';
   }
 
-  /* ---- theme-aware inks (re-read on every repaint) ----
+  /* ---- theme-aware inks (read once per THEME, not once per repaint) ----
      `accent` is the decorative wash; `mark` is the same accent mixed
      toward --ink for anything that CARRIES meaning on the canvas, because
      the watercolour accents are decorative-strength on light paper and a
      reveal a player cannot see is not a reveal. Defined as
-     --canvas-accent below the marker in css/style.css. */
+     --canvas-accent below the marker in css/style.css.
+
+     Every one of these is a custom property on :root and the ONLY thing
+     that moves them is the data-theme attribute — so a read per theme is
+     the same answer as a read per repaint, minus the cost.
+     getComputedStyle().getPropertyValue() cannot answer until style has
+     been resolved, and draw() is called from the input handler directly
+     after the hint line's text changed, so each repaint flushed a style
+     recalculation to fetch four values that had not moved since boot. A
+     tap drill pays that once per tap; a drawing drill built on this
+     skeleton pays it on every pointer sample, in the middle of the
+     stroke, which is exactly where a player feels the hand stop being
+     listened to. An empty read (stylesheet not parsed yet on a cold
+     boot) is never cached, so the next repaint still corrects it. */
+  var inkCache = null, inkTheme = '';
   function inks() {
+    var t = ArtDaily.theme();
+    if (inkCache && inkTheme === t) return inkCache;
     var cs = getComputedStyle(document.documentElement);
     var accent = cs.getPropertyValue('--game-accent').trim() || cs.getPropertyValue('--mint').trim();
-    return {
+    var c = {
       ink: cs.getPropertyValue('--ink').trim(),
       muted: cs.getPropertyValue('--muted').trim(),
       accent: accent,
       mark: cs.getPropertyValue('--canvas-accent').trim() || accent,
     };
+    if (c.ink && c.muted && accent) { inkCache = c; inkTheme = t; }
+    return c;
   }
 
   /* ---- crisp canvas at any devicePixelRatio; height tracks width ---- */
@@ -324,8 +342,9 @@
        exactly on the drawn ring is 75 out of 100 on a mouse and 16 on a pen
        tablet. A player reading a 62 had nothing on screen to read it
        against. Reveal only — during play it would just be a second ring to
-       aim at, and the aim ring is the one that matters then. */
-    var zr = zeroPoint();
+       aim at, and the aim ring is the one that matters then. Taken from the
+       reveal, not from ease() again — see the note where it is stored. */
+    var zr = (isFinite(rv.zero) && rv.zero > 0) ? rv.zero : zeroPoint();
     if (isFinite(zr) && zr > t.r + 3) {
       ctx.save();
       ctx.globalAlpha = 0.4;
@@ -391,6 +410,16 @@
       tf: target,
       dx: dx,
       dy: dy,
+      /* The zero-point is kept WITH the mark, for the same reason the mark
+         is kept as an offset: the reveal outlives the moment it was scored,
+         and the dotted ring is the scale the printed number was measured
+         on. ease() answers for the hardware in use NOW, and the hardware
+         can change while the reveal is up — a pen plugged in at the end of
+         a round fires onInput, which repaints, and the ring would redraw at
+         half its size with "A little low — 61" still printed under it. The
+         number is history; the scale it was measured against is history
+         too, and history does not get re-judged. */
+      zero: zero,
       words: missPhrase(dx, dy, zero),
     };
     hint.textContent = reveal.words + ' — ' + Math.round(acc) + ' out of 100 for that tap.';
@@ -470,11 +499,36 @@
     btnHow.setAttribute('aria-expanded', String(!howTo.hidden));
   });
 
-  ArtDaily.onTheme(draw);
+  /* The ink cache above is keyed on the theme, so it self-heals; dropping
+     it here as well means a drill that later reads an ink from somewhere
+     other than draw() cannot be caught holding yesterday's colour. */
+  ArtDaily.onTheme(function () { inkCache = null; draw(); });
   /* The hardware can change mid-session; the ring is sized from it. */
   ArtDaily.onInput(draw);
 
-  function onResize() { if (fitCanvas()) draw(); }
+  /* Both resize sources fire in bursts for a single drag, and a fit that
+     really changes size REALLOCATES the canvas backing store — the most
+     expensive thing in this file, plus a full clear on top. So measure and
+     repaint at most once a frame, and only when the size actually moved.
+     A drill that draws STROKES should coalesce the same way: the browser
+     delivers pointermove faster than it paints, so a repaint per sample is
+     several full-canvas washes per frame with all but one thrown away, and
+     each one is main-thread time the next sample waits behind. Take the
+     samples themselves at full rate — ArtDaily.samples(ev) — and only the
+     PAINTING once a frame: fidelity and repaint cost are separate
+     questions and the honest answer differs for each. The tap handler
+     above still paints inline: the press that just landed is the one frame
+     that must not wait for anything. */
+  function raf(fn) {
+    if (window.requestAnimationFrame) window.requestAnimationFrame(fn);
+    else setTimeout(fn, 16);
+  }
+  var fitPending = false;
+  function onResize() {
+    if (fitPending) return;
+    fitPending = true;
+    raf(function () { fitPending = false; if (fitCanvas()) draw(); });
+  }
   window.addEventListener('resize', onResize);
   /* ResizeObserver also catches the case window.resize cannot: the canvas
      measuring 0 at boot (opened in a background tab, or laid out late) and

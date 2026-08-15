@@ -70,6 +70,9 @@ Then the rest of the bar:
   all lean the same way are one mistake, and saying "aim high and left
   next round" is the only correction that outlives the round
 - **44px touch targets**, pointerId-guarded strokes
+- **the loop feels listened to**: full-rate samples (`ArtDaily.samples`),
+  one repaint per frame, no `getComputedStyle` inside the repaint, nothing
+  animated from JS that ignores `prefers-reduced-motion`
 - **AA contrast in both themes** for anything meaning-bearing on canvas
   (the watercolor accents are decorative-strength on paper — mix toward
   `--ink`, or define a `--canvas-accent` below the CSS marker)
@@ -85,12 +88,28 @@ Then the rest of the bar:
   `ArtDaily.ease(BASE)` and aim-at sizes from `ArtDaily.startRadius(BASE)`
   — both from your own base constant, never one fed into the other
   (`js/game.js` shows the pattern and why)
+- **Full-rate sampling for strokes**: `ArtDaily.samples(ev)` returns every
+  position a `pointermove` actually carried, not just the one the browser
+  got round to dispatching. A pen samples far faster than the screen
+  repaints, and a drill that scores geometry off the delivered events
+  alone loses the corner of every fast stroke — so a confident line scores
+  worse than a timid one. Total: always an array, `[ev]` where the browser
+  cannot coalesce
+- **A loop that stays out of the way**: inks are resolved once per theme
+  instead of once per repaint (a repaint follows a text change, so each
+  one was flushing a style recalculation), and both resize sources are
+  coalesced into one measure + one repaint per frame — a 40-event resize
+  drag costs 1 canvas reallocation, not 40. A drill that draws strokes
+  should route its repaints through `requestAnimationFrame` the same way;
+  sample at full rate, paint once a frame
 - **Correctness scaffolding in `js/game.js`**: pure scoring functions at
   the top of the file, target geometry stored as canvas fractions so a
   rotation cannot lose the round, `report()` on exactly one path
 - **A worked reveal**: after every tap the demo holds the ring, draws the
   truth, your mark, the gap between them and — faintly — the ring where
-  the score reaches zero, then names the miss in plain words ("a little
+  the score reaches zero (stored *with* the reveal, so plugging a pen in
+  while it is up cannot redraw the scale at half its size under a number
+  measured on the old one), then names the miss in plain words ("a little
   high and left") from a pure function graded against the same tolerance
   as the score, with its bands cut where the score changes character so
   the adjective never oversells the number. At round end a second pure
