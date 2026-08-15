@@ -466,6 +466,15 @@
        could honestly be judged against. Ignored, never counted against
        them: nothing is ever punished for a UI reason. */
     if (!playing || !target || reveal || ev.isPrimary === false) return;
+    /* Only a press that MEANS "here". A right-click on the canvas is a
+       pointerdown like any other — primary pointer, real coordinates — so it
+       used to burn an item and score wherever the cursor happened to be,
+       while the context menu opened over the reveal explaining it. Same for
+       a middle-click, and for a pen's barrel button. Nothing is punished for
+       a UI reason: ignore it, do not count it. (`button` is 0 for a finger
+       and for a pen's tip, so touch and pen are untouched; an event that
+       carries no `button` at all still passes.) */
+    if (ev.button > 0) return;
     ev.preventDefault();
     var t = targetAt(target);
     var p = pointerPos(ev);

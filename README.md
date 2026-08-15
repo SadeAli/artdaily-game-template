@@ -57,8 +57,11 @@ first-thirty-seconds questions before anything else:
 Then the rest of the bar:
 
 - **nothing is punished for UI reasons**: stray taps and too-short
-  strokes reset free, misplacements are undoable, and a tap that lands
-  while a reveal holds the screen is ignored rather than scored
+  strokes reset free, misplacements are undoable, a tap that lands
+  while a reveal holds the screen is ignored rather than scored, and a
+  press that does not mean "here" — right-click, middle-click, a pen's
+  barrel button — is ignored too (`if (ev.button > 0) return;`, which
+  costs a finger and a pen tip nothing since both report `button` 0)
 - **no dead states** — do nothing · press done immediately · draw during
   a reveal · resize mid-item · press "new round" mid-round
 - **reveal after every attempt**, truth over their attempt, delta named
