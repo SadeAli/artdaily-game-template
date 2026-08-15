@@ -137,10 +137,16 @@
   var round = 0, targetIdx = 0, accuracies = [], target = null, playing = false;
 
   /* The last tap, held on screen over the target it was judged against —
-     the reveal. Stored in fractions for the same reason the target is:
-     the round-end reveal stays up until "new round" is pressed, so a
-     phone rotated while reading it would otherwise redraw the mark and
-     the truth at stale pixels and teach the wrong lesson. */
+     the reveal. The target keeps its fractions; the MARK is kept as the
+     pixel offset that was actually scored (dx, dy), not as its own fraction
+     of the canvas. The round-end reveal stays up until "new round" is
+     pressed, and the score under it is an absolute pixel miss judged
+     against a canvas-independent zero-point — so a phone rotated while the
+     player reads it must not change the gap they are looking at. Two
+     fractions re-projected onto a 360px canvas drift apart: a 26px miss
+     ("A little", 61) redrew as a 68px one on the way back to landscape,
+     which is "Way out", 0. The picture then teaches the opposite of the
+     number printed under it. An offset survives every resize exactly. */
   var reveal = null;
   var revealTimer = null;
   /* Long enough to read the mark, short enough that five of them do not
@@ -253,7 +259,15 @@
   function drawReveal(c, rv) {
     var t = targetAt(rv.tf);
     if (!t) return;
-    var px = rv.fx * W, py = rv.fy * H;
+    /* The mark is placed by the offset that was SCORED, so the gap on screen
+       is always the gap the number and the words describe, whatever the
+       canvas has done since. Kept on the sheet after a hard shrink: the
+       dashed line still points the right way, and a mark drawn off the edge
+       is no reveal at all. */
+    var px = t.x + (isFinite(rv.dx) ? rv.dx : 0);
+    var py = t.y + (isFinite(rv.dy) ? rv.dy : 0);
+    px = Math.max(4, Math.min(W - 4, px));
+    py = Math.max(4, Math.min(H - 4, py));
     ctx.lineWidth = 2;
     ctx.strokeStyle = c.muted;
     ctx.beginPath();
@@ -305,8 +319,8 @@
     targetIdx += 1;
     reveal = {
       tf: target,
-      fx: W > 0 ? p.x / W : 0.5,
-      fy: H > 0 ? p.y / H : 0.5,
+      dx: dx,
+      dy: dy,
       words: missPhrase(dx, dy, zero),
     };
     hint.textContent = reveal.words + ' — ' + Math.round(acc) + ' out of 100 for that tap.';

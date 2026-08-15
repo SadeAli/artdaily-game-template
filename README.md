@@ -84,7 +84,10 @@ Then the rest of the bar:
 - **A worked reveal**: after every tap the demo holds the ring, draws the
   truth, your mark and the gap between them, and names the miss in plain
   words ("a little high and left") from a pure function graded against
-  the same tolerance as the score. Replace the geometry, keep the shape —
+  the same tolerance as the score. The target is stored as canvas
+  fractions but the mark as the **pixel offset that was scored**, so
+  rotating the phone while the reveal is up cannot redraw a 26px miss as a
+  5px one and contradict the 61 printed under it. Replace the geometry, keep the shape —
   reveal marks read `--canvas-accent` (defined below the CSS marker), not
   the raw `--game-accent` wash, so they stay legible on paper
 - Shared studio chrome: HUD (round / score / best), hint line, dot-grid
