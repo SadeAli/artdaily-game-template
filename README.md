@@ -2,7 +2,8 @@
 
 Copy this folder to start a new drill for [artdaily.sadeali.com](https://artdaily.sadeali.com/).
 Zero build step, zero dependencies. It ships as a *working* demo game
-(tap-the-bullseye) — replace the drill, keep the skeleton.
+(tap-the-centre-dot, with a reveal after every tap) — replace the drill,
+keep the skeleton.
 
 Design + protocol details live in the artdaily repo's `GAME_GUIDE.md`;
 this file is just the checklist.
@@ -39,13 +40,28 @@ this file is just the checklist.
 The bar every shipped drill is held to (the long version, with the
 reasoning, is in the artdaily repo's `GAME_GUIDE.md`):
 
-- the **first screen teaches the verb** — hint line + visible
-  affordances, before anyone opens the how-to
+Open it cold, the way a beginner does, and answer the four
+first-thirty-seconds questions before anything else:
+
+- does the **first screen teach the verb** — hint line + visible
+  affordances, before anyone opens the how-to?
+- is the **first item genuinely easy** (an easier item, not kinder
+  scoring — random placement will eventually open a round in a corner)?
+- is any **word jargon** the drill does not teach on the spot?
+- is the **first reveal a lesson or just a number**? And does round one
+  say what the score is *for*, instead of "new best!" — which is
+  trivially true on it, so branch on `report().isFirst`
+
+Then the rest of the bar:
+
 - **nothing is punished for UI reasons**: stray taps and too-short
-  strokes reset free, misplacements are undoable
+  strokes reset free, misplacements are undoable, and a tap that lands
+  while a reveal holds the screen is ignored rather than scored
 - **no dead states** — do nothing · press done immediately · draw during
   a reveal · resize mid-item · press "new round" mid-round
 - **reveal after every attempt**, truth over their attempt, delta named
+  in words — including the last attempt of the round, whose correction
+  the round-end score must not wipe out
 - **44px touch targets**, pointerId-guarded strokes
 - **AA contrast in both themes** for anything meaning-bearing on canvas
   (the watercolor accents are decorative-strength on paper — mix toward
@@ -65,6 +81,12 @@ reasoning, is in the artdaily repo's `GAME_GUIDE.md`):
 - **Correctness scaffolding in `js/game.js`**: pure scoring functions at
   the top of the file, target geometry stored as canvas fractions so a
   rotation cannot lose the round, `report()` on exactly one path
+- **A worked reveal**: after every tap the demo holds the ring, draws the
+  truth, your mark and the gap between them, and names the miss in plain
+  words ("a little high and left") from a pure function graded against
+  the same tolerance as the score. Replace the geometry, keep the shape —
+  reveal marks read `--canvas-accent` (defined below the CSS marker), not
+  the raw `--game-accent` wash, so they stay legible on paper
 - Shared studio chrome: HUD (round / score / best), hint line, dot-grid
   canvas, toast, buttons, "how to play" box — all theme-aware
 - Standalone mode: backlink to artdaily, theme toggle, footer, Stage-0

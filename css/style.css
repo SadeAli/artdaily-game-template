@@ -422,3 +422,11 @@ a { color: inherit; }
 /* ============================================================
    game-specific styles below this line
    ============================================================ */
+
+/* The reveal marks CARRY MEANING, so they are held to AA in both themes.
+   --game-accent is a watercolour wash: lovely as a ring on paper, too
+   pale to read as "here is where your tap landed". Mixed toward --ink for
+   the canvas on light, left bright in the night studio where the wash
+   already carries. js/game.js reads this as inks().mark. */
+:root { --canvas-accent: color-mix(in srgb, var(--game-accent) 45%, var(--ink)); }
+:root[data-theme="dark"] { --canvas-accent: var(--game-accent); }

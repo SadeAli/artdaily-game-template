@@ -1,9 +1,17 @@
 /* ============================================================
    game.js — the drill itself. This template ships a tiny working
-   demo (tap five targets dead-center) so you can play the pattern
+   demo (tap five targets dead centre) so you can play the pattern
    before replacing it: keep the skeleton — init → round → input →
-   score → ArtDaily.report — and swap in your drill's geometry.
-   Everything draws on one theme-aware canvas; no libraries.
+   REVEAL → score → ArtDaily.report — and swap in your drill's
+   geometry. Everything draws on one theme-aware canvas; no libraries.
+
+   The reveal is part of the skeleton, not decoration. A drill that
+   answers an attempt with only a number teaches nothing in the first
+   thirty seconds, which is the only thirty seconds a beginner gives
+   it: they cannot tell 58 from 72 by feel yet, and nothing on screen
+   tells them which way to move. So after EVERY item this demo draws
+   the truth over the attempt with the gap between them, and names the
+   miss in words. Replace the geometry, keep that.
    ============================================================ */
 (function () {
   'use strict';
@@ -53,13 +61,53 @@
     return sum / accuracies.length;
   }
 
-  /* ---- theme-aware inks (re-read on every repaint) ---- */
+  /* ---- the reveal, in words (pure too, and held to the same bar) ----
+     A bare number teaches nothing on the round that matters most. A
+     beginner who reads "58" only learns what 58 feels like after twenty
+     rounds; "a little low and right" is a correction they can make on the
+     very next tap. Every drill owes its player this — see the UX bar in
+     GAME_GUIDE.md. Canvas y grows downward, so a negative dy is HIGH. */
+  function missDirection(dx, dy) {
+    var x = Number(dx), y = Number(dy);
+    if (!isFinite(x) || !isFinite(y)) return '';
+    var ax = Math.abs(x), ay = Math.abs(y);
+    if (ax === 0 && ay === 0) return '';
+    var v = y < 0 ? 'high' : 'low';
+    var h = x < 0 ? 'left' : 'right';
+    if (ay > ax * 2.5) return v;
+    if (ax > ay * 2.5) return h;
+    return v + ' and ' + h;
+  }
+
+  /* Graded against the SAME zero-point the score uses, so the words and
+     the number can never disagree: "dead centre" next to a 40 would read
+     as the drill being broken. Total — NaN, a zero tolerance and a
+     zero-length miss all come back a usable sentence. */
+  function missPhrase(dx, dy, zero) {
+    var d = Math.hypot(Number(dx), Number(dy));
+    if (!isFinite(d)) return 'Off the mark';
+    var z = (isFinite(zero) && zero > 0) ? zero : 1;
+    var dir = missDirection(dx, dy);
+    if (d <= z * 0.08) return 'Dead centre';
+    if (d >= z) return dir ? 'Way out, ' + dir : 'Way out';
+    var much = d <= z * 0.3 ? 'A hair' : d <= z * 0.6 ? 'A little' : 'Well';
+    return dir ? much + ' ' + dir : much + ' out';
+  }
+
+  /* ---- theme-aware inks (re-read on every repaint) ----
+     `accent` is the decorative wash; `mark` is the same accent mixed
+     toward --ink for anything that CARRIES meaning on the canvas, because
+     the watercolour accents are decorative-strength on light paper and a
+     reveal a player cannot see is not a reveal. Defined as
+     --canvas-accent below the marker in css/style.css. */
   function inks() {
     var cs = getComputedStyle(document.documentElement);
+    var accent = cs.getPropertyValue('--game-accent').trim() || cs.getPropertyValue('--mint').trim();
     return {
       ink: cs.getPropertyValue('--ink').trim(),
       muted: cs.getPropertyValue('--muted').trim(),
-      accent: cs.getPropertyValue('--game-accent').trim() || cs.getPropertyValue('--mint').trim(),
+      accent: accent,
+      mark: cs.getPropertyValue('--canvas-accent').trim() || accent,
     };
   }
 
@@ -88,6 +136,23 @@
      Fractions survive any resize, so every round stays finishable. */
   var round = 0, targetIdx = 0, accuracies = [], target = null, playing = false;
 
+  /* The last tap, held on screen over the target it was judged against —
+     the reveal. Stored in fractions for the same reason the target is:
+     the round-end reveal stays up until "new round" is pressed, so a
+     phone rotated while reading it would otherwise redraw the mark and
+     the truth at stale pixels and teach the wrong lesson. */
+  var reveal = null;
+  var revealTimer = null;
+  /* Long enough to read the mark, short enough that five of them do not
+     turn a coffee-break drill into a slideshow. */
+  var REVEAL_MS = 620;
+
+  function clearReveal() {
+    clearTimeout(revealTimer);
+    revealTimer = null;
+    reveal = null;
+  }
+
   /* The drill's own reference size. TWO different SDK knobs hang off it,
      and mixing them up quietly inverts the fairness they exist for:
        · startRadius(BASE_R) — how big the thing you AIM AT is drawn. A
@@ -109,30 +174,47 @@
      on a phone and a desktop. */
   function zeroPoint() { return ArtDaily.ease(BASE_R * 2); }
 
-  /* Fractions → pixels, always inside the canvas whatever its size. */
-  function targetAt() {
-    if (!target) return null;
+  /* Fractions → pixels, always inside the canvas whatever its size.
+     Takes the fraction pair rather than reading `target`, so the reveal
+     can re-place a target that the round has already cleared. */
+  function targetAt(tf) {
+    if (!tf) return null;
     var r = targetRadius();
     var pad = r + 10;
     return {
-      x: (W > pad * 2) ? pad + target.fx * (W - pad * 2) : W / 2,
-      y: (H > pad * 2) ? pad + target.fy * (H - pad * 2) : H / 2,
+      x: (W > pad * 2) ? pad + tf.fx * (W - pad * 2) : W / 2,
+      y: (H > pad * 2) ? pad + tf.fy * (H - pad * 2) : H / 2,
       r: r,
     };
   }
 
-  function nextTarget() { target = { fx: Math.random(), fy: Math.random() }; }
+  /* The first target of a round lands in the middle. A cold beginner's
+     very first tap should be a target that is obviously there and
+     obviously reachable — a corner-spawned first item reads as the drill
+     being unfair before they have any idea what fair looks like here.
+     From the second on, anywhere: difficulty ramps WITHIN the round. */
+  function nextTarget(idx) {
+    target = idx ? { fx: Math.random(), fy: Math.random() }
+                 : { fx: 0.4 + Math.random() * 0.2, fy: 0.4 + Math.random() * 0.2 };
+  }
+
+  /* Says the verb and the goal in the words for the thing actually drawn,
+     so the first screen teaches without the how-to being opened. */
+  function itemHint(idx) {
+    return 'Target ' + (idx + 1) + ' of ' + TARGETS_PER_ROUND + ' — tap the centre dot.';
+  }
 
   function newRound() {
     round += 1;
     targetIdx = 0;
     accuracies = [];
     playing = true;
-    nextTarget();
+    clearReveal();        /* a queued advance from the abandoned round must not fire */
+    nextTarget(0);
     hudRound.textContent = String(round);
     hudScore.textContent = '–';
     hideToast();          /* the last round's score must not hang over this one */
-    hint.textContent = 'Target ' + (targetIdx + 1) + ' of ' + TARGETS_PER_ROUND + ' — tap the bullseye.';
+    hint.textContent = itemHint(0);
     draw();
   }
 
@@ -140,8 +222,15 @@
   function draw() {
     var c = inks();
     ctx.clearRect(0, 0, W, H);
-    var t = playing ? targetAt() : null;
-    if (!t) return;
+    /* The reveal owns the canvas while it is up: one live target and one
+       ghost of the last would just be two rings to choose between. */
+    if (reveal) { drawReveal(c, reveal); return; }
+    if (!playing) return;
+    var t = targetAt(target);
+    if (t) drawTarget(c, t);
+  }
+
+  function drawTarget(c, t) {
     ctx.lineWidth = 2;
     ctx.strokeStyle = c.accent;
     ctx.beginPath();
@@ -157,6 +246,39 @@
     ctx.fill();
   }
 
+  /* The truth over the attempt, with the gap between them drawn as the
+     thing it is. This is the pattern every drill owes its player after
+     EVERY item, not just at round end — replace the geometry, keep the
+     idea: what you did, what was right, and the distance named. */
+  function drawReveal(c, rv) {
+    var t = targetAt(rv.tf);
+    if (!t) return;
+    var px = rv.fx * W, py = rv.fy * H;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = c.muted;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = c.ink;
+    ctx.beginPath();
+    ctx.moveTo(t.x, t.y);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = c.ink;                 /* what you were aiming at */
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;                     /* where you landed */
+    ctx.strokeStyle = c.mark;
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   /* ---- input → accuracy → score ---- */
   function pointerPos(ev) {
     var rect = canvas.getBoundingClientRect();
@@ -164,47 +286,90 @@
   }
 
   canvas.addEventListener('pointerdown', function (ev) {
-    /* Second finger of a two-finger tap must not burn a second target —
-       nothing is ever punished for a UI reason. */
-    if (!playing || !target || ev.isPrimary === false) return;
+    /* Second finger of a two-finger tap must not burn a second target,
+       and neither may a tap that lands while the previous reveal is still
+       up — the next target has not been drawn yet, so there is nothing it
+       could honestly be judged against. Ignored, never counted against
+       them: nothing is ever punished for a UI reason. */
+    if (!playing || !target || reveal || ev.isPrimary === false) return;
     ev.preventDefault();
-    var t = targetAt();
+    var t = targetAt(target);
     var p = pointerPos(ev);
-    var d = Math.hypot(p.x - t.x, p.y - t.y);
+    var dx = p.x - t.x, dy = p.y - t.y;
+    var d = Math.hypot(dx, dy);
     /* Zero-point through the SDK, so an honest miss reads as an honest
        miss on a pen, a trackpad and a finger alike. */
-    accuracies.push(tapAccuracy(d, zeroPoint()));
+    var zero = zeroPoint();
+    var acc = tapAccuracy(d, zero);
+    accuracies.push(acc);
     targetIdx += 1;
-    if (targetIdx < TARGETS_PER_ROUND) {
-      nextTarget();
-      hint.textContent = 'Target ' + (targetIdx + 1) + ' of ' + TARGETS_PER_ROUND + ' — tap the bullseye.';
-      draw();
-      return;
-    }
-    finishRound();
+    reveal = {
+      tf: target,
+      fx: W > 0 ? p.x / W : 0.5,
+      fy: H > 0 ? p.y / H : 0.5,
+      words: missPhrase(dx, dy, zero),
+    };
+    hint.textContent = reveal.words + ' — ' + Math.round(acc) + ' out of 100 for that tap.';
+    draw();
+    /* The last tap does NOT wait on the beat: finishing is synchronous, so
+       report() cannot be raced by "new round" landing during the reveal.
+       The reveal simply stays on the canvas behind the score. */
+    if (targetIdx >= TARGETS_PER_ROUND) { finishRound(); return; }
+    revealTimer = setTimeout(nextItem, REVEAL_MS);
   });
+
+  function nextItem() {
+    revealTimer = null;
+    if (!playing) return;     /* the round was abandoned while the reveal was up */
+    reveal = null;
+    nextTarget(targetIdx);
+    hint.textContent = itemHint(targetIdx);
+    draw();
+  }
+
+  /* A number on its own is not a reveal, and "new best!" on the very first
+     round celebrates nothing — it is true of every player's first round
+     ever played, fired on the one round where they most need to be told
+     what the number MEANS. So the first round says what the score is FOR
+     and what to do next; after that the primary button speaks for itself.
+     The last tap keeps its words here too: item five is an attempt like
+     any other and is owed the same reveal as items one to four. */
+  function roundWords(res, last) {
+    var head = (last ? last + '. ' : '') + 'Round done — ' + res.score + ' out of 100';
+    if (res.isFirst) return head + '. That is your bar now — press “new round” and beat it.';
+    if (res.isNewBest) return head + ', your best yet.';
+    return head + ' (best ' + res.best + ').';
+  }
 
   function finishRound() {
     playing = false;                  /* set first: report() fires exactly once */
     target = null;
-    draw();
+    clearTimeout(revealTimer);        /* nothing may advance past a finished round */
+    revealTimer = null;
+    draw();                           /* the last tap stays up as the reveal */
     var res = ArtDaily.report(roundScore(accuracies));
     hudScore.textContent = String(res.score);
     hudBest.textContent = res.best === null ? '–' : String(res.best);
-    hint.textContent = 'Round done — press “new round” to go again.';
-    showToast((res.isNewBest ? 'new best! ' : 'score ') + res.score + ' / 100', res.isNewBest);
+    hint.textContent = roundWords(res, reveal && reveal.words);
+    showToast(res.isFirst ? 'first score ' + res.score + ' / 100'
+            : res.isNewBest ? 'new best! ' + res.score + ' / 100'
+            : 'score ' + res.score + ' / 100',
+      res.isNewBest && !res.isFirst);
   }
 
   var toastTimer = null;
   function hideToast() { clearTimeout(toastTimer); toast.hidden = true; }
   function showToast(msg, celebrate) {
-    toast.innerHTML = '';
+    clearTimeout(toastTimer);
+    /* Unhidden BEFORE the text lands: a live region that is still `hidden`
+       when its content changes is not announced, so a screen-reader player
+       finished the round and heard the score nowhere. */
+    toast.hidden = false;
+    toast.textContent = '';
     var s = document.createElement('span');
     s.className = celebrate ? 'toast-accent' : '';
     s.textContent = msg;
     toast.appendChild(s);
-    toast.hidden = false;
-    clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toast.hidden = true; }, 2200);
   }
 
