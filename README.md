@@ -26,8 +26,28 @@ this file is just the checklist.
    `main`; Settings → Pages → deploy `main` / root. The game is now live
    at `https://sadeali.github.io/artdaily-<slug>/`.
 6. **Register it**: add one entry to `js/registry.js` in the artdaily
-   repo (slug, name, tagline, icon, accent, skills, minutes, url, dev).
+   repo (slug, name, tagline, icon, accent, skills, minutes, url, dev,
+   plus `cat` for its chapter and `tag` for how it's scored).
    Push — the Art Daily page now lists, embeds and scores your game.
+
+## Before you call it done
+
+The bar every shipped drill is held to (the long version, with the
+reasoning, is in the artdaily repo's `GAME_GUIDE.md`):
+
+- the **first screen teaches the verb** — hint line + visible
+  affordances, before anyone opens the how-to
+- **nothing is punished for UI reasons**: stray taps and too-short
+  strokes reset free, misplacements are undoable
+- **no dead states** — do nothing · press done immediately · draw during
+  a reveal · resize mid-item · press "new round" mid-round
+- **reveal after every attempt**, truth over their attempt, delta named
+- **44px touch targets**, pointerId-guarded strokes
+- **AA contrast in both themes** for anything meaning-bearing on canvas
+  (the watercolor accents are decorative-strength on paper — mix toward
+  `--ink`, or define a `--canvas-accent` below the CSS marker)
+- **draw, don't tap**, unless the lesson really is a decomposition or a
+  judgement call
 
 ## What's wired in already
 
