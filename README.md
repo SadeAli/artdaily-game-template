@@ -62,6 +62,13 @@ Then the rest of the bar:
 - **reveal after every attempt**, truth over their attempt, delta named
   in words — including the last attempt of the round, whose correction
   the round-end score must not wipe out
+- **the scale is drawn too**, faintly, in the reveal: the ring you aim at
+  is *not* the ring the score is measured on (`startRadius` vs `ease`
+  rank the hardware in opposite orders), so without it a 62 has nothing
+  on screen to be read against
+- **the round names its own habit** when there is one — five misses that
+  all lean the same way are one mistake, and saying "aim high and left
+  next round" is the only correction that outlives the round
 - **44px touch targets**, pointerId-guarded strokes
 - **AA contrast in both themes** for anything meaning-bearing on canvas
   (the watercolor accents are decorative-strength on paper — mix toward
@@ -82,9 +89,13 @@ Then the rest of the bar:
   the top of the file, target geometry stored as canvas fractions so a
   rotation cannot lose the round, `report()` on exactly one path
 - **A worked reveal**: after every tap the demo holds the ring, draws the
-  truth, your mark and the gap between them, and names the miss in plain
-  words ("a little high and left") from a pure function graded against
-  the same tolerance as the score. The target is stored as canvas
+  truth, your mark, the gap between them and — faintly — the ring where
+  the score reaches zero, then names the miss in plain words ("a little
+  high and left") from a pure function graded against the same tolerance
+  as the score, with its bands cut where the score changes character so
+  the adjective never oversells the number. At round end a second pure
+  function names the round's *habit* if the misses leaned one way, and
+  says which way to aim next time. The target is stored as canvas
   fractions but the mark as the **pixel offset that was scored**, so
   rotating the phone while the reveal is up cannot redraw a 26px miss as a
   5px one and contradict the 61 printed under it. Replace the geometry, keep the shape —

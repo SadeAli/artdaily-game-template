@@ -88,10 +88,54 @@
     if (!isFinite(d)) return 'Off the mark';
     var z = (isFinite(zero) && zero > 0) ? zero : 1;
     var dir = missDirection(dx, dy);
+    /* Cut the bands where the SCORE changes character, not at tidy fractions
+       of the tolerance. The adjective is printed in the same sentence as the
+       number — "A hair low — 71 out of 100" reads as the drill lying to you,
+       and a player who is told they were a hair off stops correcting. The
+       score here is 100 - 100*d/z, so these edges are, as scores:
+         92+ dead centre · 75+ a hair · 50+ a little · 20+ well · under 20 way out. */
     if (d <= z * 0.08) return 'Dead centre';
-    if (d >= z) return dir ? 'Way out, ' + dir : 'Way out';
-    var much = d <= z * 0.3 ? 'A hair' : d <= z * 0.6 ? 'A little' : 'Well';
+    if (d >= z * 0.8) return dir ? 'Way out, ' + dir : 'Way out';
+    var much = d <= z * 0.25 ? 'A hair' : d <= z * 0.5 ? 'A little' : 'Well';
     return dir ? much + ' ' + dir : much + ' out';
+  }
+
+  /* ---- the round's lesson, which no single attempt can show ----
+     Five taps that all land low and right are not five random misses, they
+     are one habit, and naming it is the only correction that outlives the
+     round: per-item words fix the next tap, this fixes the next round. Fires
+     only on a lean that is BOTH consistent (most attempts on the same side)
+     and big enough to be worth aiming off (a tenth of the tolerance), so it
+     can never invent a pattern out of noise. Pure and total: junk offsets, a
+     short round and a zero tolerance all come back a string — '' meaning
+     "there is nothing honest to say", which the caller must treat as silence
+     rather than print. */
+  function roundBias(marks, zero) {
+    if (!marks || !marks.length) return '';
+    var z = (isFinite(zero) && zero > 0) ? zero : 1;
+    var n = 0, sx = 0, sy = 0, left = 0, right = 0, high = 0, low = 0;
+    for (var i = 0; i < marks.length; i++) {
+      var m = marks[i];
+      if (!m) continue;
+      var x = Number(m.dx), y = Number(m.dy);
+      if (!isFinite(x) || !isFinite(y)) continue;
+      n++; sx += x; sy += y;
+      if (x < 0) left++; else if (x > 0) right++;
+      if (y < 0) high++; else if (y > 0) low++;   /* canvas y grows downward */
+    }
+    if (n < 3) return '';           /* too few attempts to call anything a habit */
+    var mx = sx / n, my = sy / n;
+    var most = Math.max(2, Math.ceil(n * 0.6));
+    /* The count must be on the SAME side as the mean, or two wild misses one
+       way outvote three small ones the other and the sentence points backwards. */
+    var h = (Math.abs(mx) >= z * 0.1 && (mx < 0 ? left : right) >= most) ? (mx < 0 ? 'left' : 'right') : '';
+    var v = (Math.abs(my) >= z * 0.1 && (my < 0 ? high : low) >= most) ? (my < 0 ? 'high' : 'low') : '';
+    if (!h && !v) return '';
+    var was = (v && h) ? v + ' and ' + h : (v || h);
+    var fv = v === 'high' ? 'low' : v === 'low' ? 'high' : '';
+    var fh = h === 'left' ? 'right' : h === 'right' ? 'left' : '';
+    var fix = (fv && fh) ? fv + ' and ' + fh : (fv || fh);
+    return 'Most taps landed ' + was + ' — aim ' + fix + ' next round.';
   }
 
   /* ---- theme-aware inks (re-read on every repaint) ----
@@ -135,6 +179,10 @@
      and the round could never finish — a dead round that never reported.
      Fractions survive any resize, so every round stays finishable. */
   var round = 0, targetIdx = 0, accuracies = [], target = null, playing = false;
+  /* Every tap's scored offset, kept for the round-end bias line. The score
+     only needs the accuracies; the LESSON needs to know which way each miss
+     went, and that is gone once a distance has been collapsed to a number. */
+  var marks = [];
 
   /* The last tap, held on screen over the target it was judged against —
      the reveal. The target keeps its fractions; the MARK is kept as the
@@ -214,6 +262,7 @@
     round += 1;
     targetIdx = 0;
     accuracies = [];
+    marks = [];
     playing = true;
     clearReveal();        /* a queued advance from the abandoned round must not fire */
     nextTarget(0);
@@ -268,6 +317,26 @@
     var py = t.y + (isFinite(rv.dy) ? rv.dy : 0);
     px = Math.max(4, Math.min(W - 4, px));
     py = Math.max(4, Math.min(H - 4, py));
+    /* The scale the number is measured on, drawn faintly — where the score
+       runs out. Without it the only circle on the sheet is the ring you AIM
+       at, which is a different size for a different reason (startRadius vs
+       ease), and the two ranked the hardware in opposite orders: landing
+       exactly on the drawn ring is 75 out of 100 on a mouse and 16 on a pen
+       tablet. A player reading a 62 had nothing on screen to read it
+       against. Reveal only — during play it would just be a second ring to
+       aim at, and the aim ring is the one that matters then. */
+    var zr = zeroPoint();
+    if (isFinite(zr) && zr > t.r + 3) {
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.setLineDash([2, 6]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = c.muted;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, zr, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.lineWidth = 2;
     ctx.strokeStyle = c.muted;
     ctx.beginPath();
@@ -316,6 +385,7 @@
     var zero = zeroPoint();
     var acc = tapAccuracy(d, zero);
     accuracies.push(acc);
+    marks.push({ dx: dx, dy: dy });
     targetIdx += 1;
     reveal = {
       tf: target,
@@ -347,12 +417,15 @@
      what the number MEANS. So the first round says what the score is FOR
      and what to do next; after that the primary button speaks for itself.
      The last tap keeps its words here too: item five is an attempt like
-     any other and is owed the same reveal as items one to four. */
-  function roundWords(res, last) {
+     any other and is owed the same reveal as items one to four. And the
+     round's own correction goes last, when there is one — the per-item
+     words fix the next tap, the bias line fixes the next round. */
+  function roundWords(res, last, bias) {
     var head = (last ? last + '. ' : '') + 'Round done — ' + res.score + ' out of 100';
-    if (res.isFirst) return head + '. That is your bar now — press “new round” and beat it.';
-    if (res.isNewBest) return head + ', your best yet.';
-    return head + ' (best ' + res.best + ').';
+    var tail = bias ? ' ' + bias : '';
+    if (res.isFirst) return head + '. That is your bar now — press “new round” and beat it.' + tail;
+    if (res.isNewBest) return head + ', your best yet.' + tail;
+    return head + ' (best ' + res.best + ').' + tail;
   }
 
   function finishRound() {
@@ -364,7 +437,7 @@
     var res = ArtDaily.report(roundScore(accuracies));
     hudScore.textContent = String(res.score);
     hudBest.textContent = res.best === null ? '–' : String(res.best);
-    hint.textContent = roundWords(res, reveal && reveal.words);
+    hint.textContent = roundWords(res, reveal && reveal.words, roundBias(marks, zeroPoint()));
     showToast(res.isFirst ? 'first score ' + res.score + ' / 100'
             : res.isNewBest ? 'new best! ' + res.score + ' / 100'
             : 'score ' + res.score + ' / 100',
