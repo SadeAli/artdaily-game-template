@@ -19,9 +19,13 @@ this file is just the checklist.
    seconds, every finished drill ends in `ArtDaily.report(score0to100)`.
    Never edit `js/artdaily-sdk.js` — it's a vendored copy of the
    protocol (canonical copy: artdaily repo `sdk/`).
-4. **Verify**: `python3 -m http.server 8080` — play it standalone, then
-   embedded (open the artdaily page locally; its registry `dev` path
-   points at your folder). Check dark + light, mobile width, touch.
+4. **Verify**: `node --check js/game.js`, then
+   `python3 -m http.server 8080` — play it standalone, then embedded
+   (open the artdaily page locally; its registry `dev` path points at
+   your folder). Check dark + light, mobile width, touch — and **rotate
+   the phone mid-round**, which must not lose the round. Lift the pure
+   scoring functions into node and check the four cases the guide names:
+   perfect ≥ 95, garbage ≤ 30, monotonic, degenerate → finite 0–100.
 5. **Repo**: create `github.com/SadeAli/artdaily-<slug>` (public), push
    `main`; Settings → Pages → deploy `main` / root. The game is now live
    at `https://sadeali.github.io/artdaily-<slug>/`.
@@ -53,6 +57,14 @@ reasoning, is in the artdaily repo's `GAME_GUIDE.md`):
 
 - `js/artdaily-sdk.js` — embed detection, theme sync with the parent
   page, `?theme=` no-flash boot, personal-best storage, score reporting
+- **Hardware fairness**: the SDK detects pen / mouse / touch silently and
+  fills the `#inputMode` HUD chip. Take tolerances from
+  `ArtDaily.ease(BASE)` and aim-at sizes from `ArtDaily.startRadius(BASE)`
+  — both from your own base constant, never one fed into the other
+  (`js/game.js` shows the pattern and why)
+- **Correctness scaffolding in `js/game.js`**: pure scoring functions at
+  the top of the file, target geometry stored as canvas fractions so a
+  rotation cannot lose the round, `report()` on exactly one path
 - Shared studio chrome: HUD (round / score / best), hint line, dot-grid
   canvas, toast, buttons, "how to play" box — all theme-aware
 - Standalone mode: backlink to artdaily, theme toggle, footer, Stage-0
