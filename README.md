@@ -24,9 +24,11 @@ this file is just the checklist.
    `python3 -m http.server 8080` — play it standalone, then embedded
    (open the artdaily page locally; its registry `dev` path points at
    your folder). Check dark + light, mobile width, touch — and **rotate
-   the phone mid-round**, which must not lose the round. Lift the pure
-   scoring functions into node and check the four cases the guide names:
-   perfect ≥ 95, garbage ≤ 30, monotonic, degenerate → finite 0–100.
+   the phone mid-round**, which must not lose the round. Then **tab
+   through it**: every stop a control you can operate, in reading order,
+   focus ring visible on both sheets. Lift the pure scoring functions into
+   node and check the four cases the guide names: perfect ≥ 95, garbage
+   ≤ 30, monotonic, degenerate → finite 0–100.
 5. **Repo**: create `github.com/SadeAli/artdaily-<slug>` (public), push
    `main`; Settings → Pages → deploy `main` / root. The game is now live
    at `https://sadeali.github.io/artdaily-<slug>/`.
@@ -73,9 +75,22 @@ Then the rest of the bar:
 - **the loop feels listened to**: full-rate samples (`ArtDaily.samples`),
   one repaint per frame, no `getComputedStyle` inside the repaint, nothing
   animated from JS that ignores `prefers-reduced-motion`
-- **AA contrast in both themes** for anything meaning-bearing on canvas
-  (the watercolor accents are decorative-strength on paper — mix toward
-  `--ink`, or define a `--canvas-accent` below the CSS marker)
+- **3:1 in both themes** for anything meaning-bearing on canvas — including
+  anything you drew at a low `globalAlpha`, because alpha is contrast (the
+  demo's "faint" zero-ring was 1.74:1 on paper until it wasn't). The
+  watercolor accents are decorative-strength on paper: on the light sheet
+  the raw palette measures 1.97–3.48:1, so meaning goes in `--canvas-accent`
+  (defined below the CSS marker), never in the raw `--game-accent` wash
+- **one live region — the hint line.** Two of them written in the same tick
+  queue up and say the same thing twice; the toast is a sticker
+  (`aria-hidden`), not a second voice
+- **the canvas's `aria-label` is the picture, kept current** by
+  `describeSheet()` in `js/game.js` — a name set once in the HTML describes
+  a blank rectangle for the whole session
+- **no `tabindex` on a canvas you cannot play with the keyboard**, and no
+  keyboard drill without the `tabindex` — a tab stop that focuses a picture
+  and does nothing reads as a broken control. Tab the whole drill before you
+  ship: every stop a control, in reading order, ring visible on both sheets
 - **draw, don't tap**, unless the lesson really is a decomposition or a
   judgement call
 
@@ -123,5 +138,9 @@ Then the rest of the bar:
 - Shared studio chrome: HUD (round / score / best), hint line, dot-grid
   canvas, toast, buttons, "how to play" box — all theme-aware
 - Standalone mode: backlink to artdaily, theme toggle, footer, Stage-0
-  support links; embedded mode (`?embed=1`) sheds all of it
-- Reduced-motion and keyboard-focus styles
+  support links; embedded mode (`?embed=1`) sheds all of it. The SDK's
+  score hand-off bar keeps its link node across rounds, so a keyboard
+  player who tabbed onto it does not lose focus when a round ends
+- Reduced-motion and keyboard-focus styles (3px `--focus` ring, 3.9:1 on
+  paper / 6.6:1 in the night studio), one live region, and decorative
+  glyphs (`→ ✓ ↻`) hidden from screen readers rather than read out

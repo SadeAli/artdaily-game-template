@@ -138,12 +138,29 @@
     return 'Most taps landed ' + was + ' — aim ' + fix + ' next round.';
   }
 
+  /* ---- where a target sits, in words (pure, total) ----
+     Only the canvas knows where the target is, and a canvas is a blank to
+     anyone who cannot see it. This feeds the sheet's accessible name — see
+     describeSheet(). Junk fractions come back a usable phrase, never NaN. */
+  function sheetZone(fx, fy) {
+    var x = Number(fx), y = Number(fy);
+    if (!isFinite(x) || !isFinite(y)) return 'the middle of the sheet';
+    var h = x < 0.34 ? 'left' : x > 0.66 ? 'right' : '';
+    var v = y < 0.34 ? 'top' : y > 0.66 ? 'bottom' : '';
+    if (!h && !v) return 'the middle of the sheet';
+    return 'the ' + (v && h ? v + ' ' + h : v || h) + ' of the sheet';
+  }
+
   /* ---- theme-aware inks (read once per THEME, not once per repaint) ----
-     `accent` is the decorative wash; `mark` is the same accent mixed
-     toward --ink for anything that CARRIES meaning on the canvas, because
-     the watercolour accents are decorative-strength on light paper and a
-     reveal a player cannot see is not a reveal. Defined as
-     --canvas-accent below the marker in css/style.css.
+     `accent` is the decorative wash — a tint, a fill, a flourish. `mark` is
+     the same accent mixed toward --ink, and it is what ANYTHING CARRYING
+     MEANING on the canvas must be drawn in: the watercolour accents are
+     decorative-strength on light paper, and a shape a player cannot see is
+     not a shape. Measured on the light sheet, raw --game-accent lands at
+     2.9:1 for the template's mint, 3.0 for coral, 2.9 for bubblegum and
+     1.97 for sunny — under the 3:1 a graphic that carries information owes.
+     Mixed toward --ink, the whole palette clears it with room (worst 5.3).
+     Defined as --canvas-accent below the marker in css/style.css.
 
      Every one of these is a custom property on :root and the ONLY thing
      that moves them is the data-theme attribute — so a read per theme is
@@ -282,6 +299,7 @@
     accuracies = [];
     marks = [];
     playing = true;
+    lastScore = null;
     clearReveal();        /* a queued advance from the abandoned round must not fire */
     nextTarget(0);
     hudRound.textContent = String(round);
@@ -291,10 +309,53 @@
     draw();
   }
 
+  /* ---- the sheet, in words ----
+     The canvas is `role="img"`, so its accessible name IS the picture to
+     anyone who cannot see it — and a name fixed at boot ("GAME_NAME drill
+     area") describes a blank rectangle for the whole session. It says what
+     was actually painted instead, refreshed from draw() so the two can
+     never drift apart. NOT a live region: a name is spoken when the player
+     navigates onto the element, so this costs no announcement and never
+     competes with the hint line, which is the drill's ONE spoken channel.
+     The write is guarded because a drill that paints per pointer sample
+     calls draw() sixty times a second. */
+  var sheetName = '';
+  var lastScore = null;     /* the round-end number, for the name only */
+
+  function describeSheet() {
+    var txt;
+    if (reveal) {
+      /* Held to the same bar as the scoring functions: total. This runs
+         inside draw(), which runs inside the pointer handler, so a throw
+         here would not just garble a sentence — it would stop the canvas
+         painting and leave the round dead under the player's finger. And a
+         name is READ ALOUD: "NaN out of 100" is worse than saying nothing. */
+      var words = String(reveal.words || 'off the mark').toLowerCase();
+      var pct = isFinite(reveal.acc) ? ', ' + Math.round(reveal.acc) + ' out of 100.' : '.';
+      txt = 'Drill sheet: target ' + targetIdx + ' of ' + TARGETS_PER_ROUND +
+            ' in ' + sheetZone(reveal.tf && reveal.tf.fx, reveal.tf && reveal.tf.fy) +
+            ', with your mark beside it — ' + words + pct;
+      /* `isFinite(null)` is true — null coerces to 0 — so the null check has
+         to come first or a fresh round says "Round done: null out of 100". */
+      if (!playing && typeof lastScore === 'number' && isFinite(lastScore)) {
+        txt += ' Round done: ' + Math.round(lastScore) + ' out of 100.';
+      }
+    } else if (playing && target) {
+      txt = 'Drill sheet: target ' + (targetIdx + 1) + ' of ' + TARGETS_PER_ROUND +
+            ', a ring with a centre dot, in ' + sheetZone(target.fx, target.fy) + '.';
+    } else {
+      txt = 'Drill sheet: empty. Press “new round” to start.';
+    }
+    if (txt === sheetName) return;
+    sheetName = txt;
+    canvas.setAttribute('aria-label', txt);
+  }
+
   /* ---- painting (canvas bg stays clear so the CSS dot-grid shows) ---- */
   function draw() {
     var c = inks();
     ctx.clearRect(0, 0, W, H);
+    describeSheet();       /* the name and the picture leave from the same place */
     /* The reveal owns the canvas while it is up: one live target and one
        ghost of the last would just be two rings to choose between. */
     if (reveal) { drawReveal(c, reveal); return; }
@@ -303,9 +364,11 @@
     if (t) drawTarget(c, t);
   }
 
+  /* Every ring here carries meaning — this is the thing being aimed at — so
+     it is drawn in `mark`, not in the raw `accent` wash. See inks(). */
   function drawTarget(c, t) {
     ctx.lineWidth = 2;
-    ctx.strokeStyle = c.accent;
+    ctx.strokeStyle = c.mark;
     ctx.beginPath();
     ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
     ctx.stroke();
@@ -347,9 +410,18 @@
     var zr = (isFinite(rv.zero) && rv.zero > 0) ? rv.zero : zeroPoint();
     if (isFinite(zr) && zr > t.r + 3) {
       ctx.save();
-      ctx.globalAlpha = 0.4;
-      ctx.setLineDash([2, 6]);
-      ctx.lineWidth = 1;
+      /* "Faint" is a look, not a licence to be unreadable. This ring is the
+         scale the printed number was measured on — the how-to names it, so
+         it carries information and owes 3:1 like every other mark. At the
+         0.4 alpha it started life with, muted composited to 1.74:1 on paper
+         and 2.02:1 in the night studio: a player was told to read their
+         mark against a ring they could not see. 0.85 measures 3.8:1 on the
+         card and still 3.3:1 over the darkest dot of the grid it crosses,
+         and the dash plus the 1.5px stroke keep it clearly subordinate to
+         the solid 2px target ring. */
+      ctx.globalAlpha = 0.85;
+      ctx.setLineDash([3, 5]);
+      ctx.lineWidth = 1.5;
       ctx.strokeStyle = c.muted;
       ctx.beginPath();
       ctx.arc(t.x, t.y, zr, 0, Math.PI * 2);
@@ -421,6 +493,7 @@
          too, and history does not get re-judged. */
       zero: zero,
       words: missPhrase(dx, dy, zero),
+      acc: Math.round(acc),   /* what the picture is worth, for describeSheet() */
     };
     hint.textContent = reveal.words + ' — ' + Math.round(acc) + ' out of 100 for that tap.';
     draw();
@@ -464,6 +537,10 @@
     revealTimer = null;
     draw();                           /* the last tap stays up as the reveal */
     var res = ArtDaily.report(roundScore(accuracies));
+    /* The picture has not changed — only what is known about it has, and the
+       score is not known until report() answers. Re-name without repainting. */
+    lastScore = res.score;
+    describeSheet();
     hudScore.textContent = String(res.score);
     hudBest.textContent = res.best === null ? '–' : String(res.best);
     hint.textContent = roundWords(res, reveal && reveal.words, roundBias(marks, zeroPoint()));
@@ -475,11 +552,16 @@
 
   var toastTimer = null;
   function hideToast() { clearTimeout(toastTimer); toast.hidden = true; }
+  /* The toast is a STICKER, not a second voice. It says nothing the hint line
+     has not already said in a fuller sentence one statement earlier, and both
+     used to be aria-live="polite" regions written in the same tick — so a
+     screen-reader player heard the round's correction and then, queued behind
+     it, "score 84 / 100" again. One drill, one spoken channel: the hint line.
+     The toast is aria-hidden in index.html; keep it that way, and if your
+     drill ever puts something in here that the hint does NOT say, move it to
+     the hint instead. */
   function showToast(msg, celebrate) {
     clearTimeout(toastTimer);
-    /* Unhidden BEFORE the text lands: a live region that is still `hidden`
-       when its content changes is not announced, so a screen-reader player
-       finished the round and heard the score nowhere. */
     toast.hidden = false;
     toast.textContent = '';
     var s = document.createElement('span');

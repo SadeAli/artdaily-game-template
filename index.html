@@ -53,12 +53,22 @@
 
       <!-- The teaching line: it carries the prompt AND the per-attempt
            reveal in words, so it is a live region — otherwise a screen
-           reader hears the prompt once and never hears a single result. -->
+           reader hears the prompt once and never hears a single result.
+           It is also the drill's ONLY live region: two of them written in
+           the same tick queue up and say the same thing twice. -->
       <p class="hint" id="hint" aria-live="polite">Loading…</p>
 
       <div class="game-stage">
-        <canvas class="game-canvas" id="gameCanvas" tabindex="0" role="img" aria-label="GAME_NAME drill area"></canvas>
-        <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+        <!-- role="img" + a name that js/game.js keeps CURRENT (describeSheet):
+             the canvas is the whole drill, and a name frozen at boot describes
+             a blank rectangle for the rest of the session.
+             NO tabindex: this drill is played with a pointer, so a tab stop
+             here is a focus ring on something a keyboard cannot use. If your
+             drill adds key handling, add tabindex="0" in the same commit —
+             never one without the other. -->
+        <canvas class="game-canvas" id="gameCanvas" role="img" aria-label="GAME_NAME drill area"></canvas>
+        <!-- Decoration: every word of it is in the hint line already. -->
+        <div class="toast" id="toast" aria-hidden="true" hidden></div>
       </div>
 
       <div class="game-controls">
@@ -72,7 +82,7 @@
              the hint line and the canvas do that before anyone opens this. -->
         <p>Tap the centre dot of each target. Five targets, then a score.</p>
         <p>Closer is better: dead centre is 100, and the score fades to 0 the further out you land.</p>
-        <p>After every tap the target stays up with your mark on it and a line to the dot, so you can see which way you were off before the next one. The faint dotted ring is where the score runs out — land on it and that tap is worth nothing.</p>
+        <p>After every tap the target stays up with your mark on it and a line to the dot, so you can see which way you were off before the next one. The dotted outer ring is where the score runs out — land on it and that tap is worth nothing.</p>
         <p>At the end of the round, if your taps all drifted the same way, it says so — that is the habit to fix, not any one tap.</p>
         <p>Studio tip: aim with the whole arm, not the fingers — pin the eye on the dot and let the hand arrive.</p>
       </div>
