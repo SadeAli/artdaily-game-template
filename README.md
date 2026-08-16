@@ -114,7 +114,12 @@ Then the rest of the bar:
   per-attempt reveals spend (`sizeWord`), measured only along the axes that
   actually leaned: a direction with no size is not something a hand can
   execute, so the player invents one, and that is how a lean turns into an
-  overcorrection
+  overcorrection. Gate it on **contradiction, not majority** — fire only when
+  no attempt went the other way. A centroid grows with the *scatter*, so
+  "most on the same side + a tenth of the tolerance" fires on 82–92% of rounds
+  of pure noise, hardest on the beginner spraying the sheet, and names a
+  quadrant only two of the five taps were in. Say what happened, not what you
+  infer
 - **44px touch targets**, pointerId-guarded strokes
 - **the loop feels listened to**: full-rate samples (`ArtDaily.samples`)
   with the canvas rect measured **once per event, not once per sample**,
@@ -215,7 +220,13 @@ Then the rest of the bar:
   measured only along the axes that actually leaned. The target is stored as canvas
   fractions but the mark as the **pixel offset that was scored**, so
   rotating the phone while the reveal is up cannot redraw a 26px miss as a
-  5px one and contradict the 61 printed under it. Replace the geometry, keep the shape —
+  5px one and contradict the 61 printed under it. The reveal's **sizes** are
+  frozen with it too — the zero-ring *and* the ring you aimed at, which comes
+  from `startRadius` and therefore *grows* on the same pen plug-in that
+  shrinks the scale: a trackpad tap 30px outside a 22px ring, printed as "A
+  little right — 66", used to redraw *inside* a 37px ring on one `onInput`.
+  Once a number is printed, nothing the player has not done may change the
+  picture it describes. Replace the geometry, keep the shape —
   reveal marks read `--canvas-accent` (defined below the CSS marker), not
   the raw `--game-accent` wash, so they stay legible on paper
 - Shared studio chrome: HUD (round / score / best), hint line, dot-grid

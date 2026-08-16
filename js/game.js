@@ -169,9 +169,10 @@
      Five taps that all land low and right are not five random misses, they
      are one habit, and naming it is the only correction that outlives the
      round: per-item words fix the next tap, this fixes the next round. Fires
-     only on a lean that is BOTH consistent (most attempts on the same side)
-     and big enough to be worth aiming off (a tenth of the tolerance), so it
-     can never invent a pattern out of noise. Pure and total: junk offsets, a
+     only on a lean that is BOTH unanimous (not one tap on the other side)
+     and big enough to be worth aiming off (a tenth of the tolerance) — see
+     the gate below for what a bare majority did instead. Pure and total:
+     junk offsets, a
      short round and a zero tolerance all come back a string — '' meaning
      "there is nothing honest to say", which the caller must treat as silence
      rather than print. */
@@ -190,11 +191,43 @@
     }
     if (n < 3) return '';           /* too few attempts to call anything a habit */
     var mx = sx / n, my = sy / n;
-    var most = Math.max(2, Math.ceil(n * 0.6));
-    /* The count must be on the SAME side as the mean, or two wild misses one
-       way outvote three small ones the other and the sentence points backwards. */
-    var h = (Math.abs(mx) >= z * 0.1 && (mx < 0 ? left : right) >= most) ? (mx < 0 ? 'left' : 'right') : '';
-    var v = (Math.abs(my) >= z * 0.1 && (my < 0 ? high : low) >= most) ? (my < 0 ? 'high' : 'low') : '';
+    /* NOT ONE ATTEMPT MAY CONTRADICT THE LEAN — the count gate is "zero on the
+       other side", not "a majority on this one".
+
+       A centroid is a terrible habit detector on five samples. The mean of
+       five scattered taps grows with the SCATTER (as sd/√n), and the old gate
+       only ever weighed it against a fixed tenth of the tolerance — so the
+       wilder the round, the more reliably it cleared the bar. Measured over
+       200k simulated rounds of PURE ISOTROPIC NOISE (taps with no habit at
+       all, zero-point 88): a bare majority plus a tenth of the tolerance fired
+       on 53% of rounds at a 25px average miss, and on 82–92% of rounds from
+       50px out. Backwards, and backwards in the cruellest direction — the
+       beginner spraying the sheet is the one most reliably handed a made-up
+       habit, and an invented correction is how a scatter problem becomes a
+       lean.
+
+       And what it printed was not a description of the round in front of it.
+       Five taps flung to four different corners — (70,70) (-80,60) (75,-70)
+       (-70,-75) (80,65) — have a centroid of (15,10): a 3-2 split on both
+       axes, both over a tenth of 88. Out came "Most taps landed low and
+       right", when 2 of the 5 were. That is the general case, not a picked
+       one: on those noise rounds the old gate always named BOTH axes, and only
+       7% (50px scatter) to 4% (100px) of them actually had all five taps in
+       the named quadrant — the average had two thirds of them.
+
+       Requiring an empty other side makes the line a DESCRIPTION of the round
+       rather than an inference about the player, and a description cannot be a
+       superstition. Noise now fires on 4–12% of rounds instead of 10–92%, and
+       on every one of those every tap really did land that way (100%, all
+       scatters). Genuine drifts — a lean bigger than the wobble around it —
+       still fire on 64–100% where the old gate managed 78–100%, which is the
+       whole price. The line still reads "Most taps landed…", true a fortiori:
+       the gate is deliberately stronger than the word promises, because this
+       is the one sentence in the drill a player is asked to ACT on. Counted
+       rather than signed, so a tap landing exactly on the centre line
+       contradicts nothing. */
+    var h = (Math.abs(mx) >= z * 0.1 && (mx < 0 ? right : left) === 0) ? (mx < 0 ? 'left' : 'right') : '';
+    var v = (Math.abs(my) >= z * 0.1 && (my < 0 ? low : high) === 0) ? (my < 0 ? 'high' : 'low') : '';
     if (!h && !v) return '';
     var was = (v && h) ? v + ' and ' + h : (v || h);
     var fv = v === 'high' ? 'low' : v === 'low' ? 'high' : '';
@@ -450,15 +483,28 @@
 
   /* Fractions → pixels, always inside the canvas whatever its size.
      Takes the fraction pair rather than reading `target`, so the reveal
-     can re-place a target that the round has already cleared. */
-  function targetAt(tf) {
+     can re-place a target that the round has already cleared.
+
+     `r` overrides the LIVE radius, and the reveal always passes one — the
+     ring you were told to hit is part of the history the reveal is showing,
+     exactly like the mark and the dotted scale. Left live, it moved under a
+     finished attempt: a trackpad tap 30px out draws its mark clearly OUTSIDE
+     a 22px ring under "A little right — 66 out of 100", and plugging a pen
+     in while that reveal is up fires onInput → draw(), which redraws the
+     same frozen mark INSIDE a 37px ring. The picture then says the player
+     hit the target and the sentence says they were 66. A resize does it from
+     the other side, because targetRadius is also clamped to min(W,H)/4: on
+     this drill's BASE that bites below a ~239px sheet, and sooner the bigger
+     your own base. Total: junk or a missing radius falls back to the live
+     one. */
+  function targetAt(tf, r) {
     if (!tf) return null;
-    var r = targetRadius();
-    var pad = r + 10;
+    var rr = (isFinite(r) && r > 0) ? Number(r) : targetRadius();
+    var pad = rr + 10;
     return {
       x: (W > pad * 2) ? pad + tf.fx * (W - pad * 2) : W / 2,
       y: (H > pad * 2) ? pad + tf.fy * (H - pad * 2) : H / 2,
-      r: r,
+      r: rr,
     };
   }
 
@@ -579,7 +625,8 @@
      EVERY item, not just at round end — replace the geometry, keep the
      idea: what you did, what was right, and the distance named. */
   function drawReveal(c, rv) {
-    var t = targetAt(rv.tf);
+    /* The stored radius, not the live one — see targetAt(). */
+    var t = targetAt(rv.tf, rv.r);
     if (!t) return;
     /* The mark is placed by the offset that was SCORED, so the gap on screen
        is always the gap the number and the words describe, whatever the
@@ -729,6 +776,11 @@
       tf: target,
       dx: dx,
       dy: dy,
+      /* The ring that was actually on screen when the tap landed. Frozen
+         for the same reason `zero` below is: whether the mark sits inside
+         or outside it is the first thing the picture says, and the hardware
+         (and the canvas) can both change while the reveal is being read. */
+      r: t.r,
       /* The zero-point is kept WITH the mark, for the same reason the mark
          is kept as an offset: the reveal outlives the moment it was scored,
          and the dotted ring is the scale the printed number was measured
