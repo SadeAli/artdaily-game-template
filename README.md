@@ -254,12 +254,18 @@ Then the rest of the bar:
 - Standalone mode: backlink to artdaily, theme toggle, footer, Stage-0
   support links; embedded mode (`?embed=1`) sheds all of it. The SDK's
   score hand-off bar keeps its link node across rounds, so a keyboard
-  player who tabbed onto it does not lose focus when a round ends
+  player who tabbed onto it does not lose focus when a round ends — and on
+  the one paint where the link genuinely has to go (the opener's
+  `artdaily:logged` receipt swaps it for "sent ✓", triggered by another tab
+  entirely) focus is *handed* to the bar rather than dropped to `<body>`
 - Reduced-motion and keyboard-focus styles (3px `--focus` ring, 3.9:1 on
-  paper / 6.6:1 in the night studio), one live region, landmarks around
-  every control (the top bar is a `<header>`, so the back link and theme
-  toggle are not stranded outside `<main>`), a visually hidden `<dt>` for
-  the `#inputMode` chip so the HUD's description list is a legal one, and
-  decorative glyphs (`← → ✓ ↻`) hidden from screen readers rather than read
-  out — including inside accessible *names*, which is where it matters most:
-  the back link announced "leftwards arrow artdaily" until it didn't
+  paper / 6.6:1 in the night studio on the sheet, 3.6:1 / 7.1:1 on the top
+  bar, where `outline-offset` puts it on `--bg`), one live region, landmarks
+  around every control (the top bar is a `<header>`, so the back link and
+  theme toggle are not stranded outside `<main>`), a visually hidden `<dt>`
+  for the `#inputMode` chip so the HUD's description list is a legal one,
+  and decorative glyphs (`← → ✓ ↻ ·`) hidden from screen readers rather than
+  read out — including inside accessible *names*, which is where it matters
+  most: the back link announced "leftwards arrow artdaily" until it didn't,
+  and the footer fineprint read "SadeAli middle dot free middle dot no ads"
+  until the same three-second fix was applied there too

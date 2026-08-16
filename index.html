@@ -118,7 +118,11 @@
     <a href="https://github.com/SadeAli" rel="me noopener">GitHub</a>
     <span id="supportLinks"></span>
   </nav>
-  <p class="fineprint"><span aria-hidden="true"># </span>© SadeAli · free · no ads · no tracking</p>
+  <!-- The separators are decoration, exactly like the ones in the nav above
+       and the ones the SDK's glyph() helper wraps: read out, this line ended
+       "SadeAli middle dot free middle dot no ads middle dot no tracking".
+       Same rule, same fix, in the one bit of chrome nobody re-reads. -->
+  <p class="fineprint"><span aria-hidden="true"># </span>© SadeAli <span aria-hidden="true">·</span> free <span aria-hidden="true">·</span> no ads <span aria-hidden="true">·</span> no tracking</p>
 </footer>
 
 <script src="js/artdaily-sdk.js"></script>
