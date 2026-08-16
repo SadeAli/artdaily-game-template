@@ -430,3 +430,46 @@ a { color: inherit; }
    already carries. js/game.js reads this as inks().mark. */
 :root { --canvas-accent: color-mix(in srgb, var(--game-accent) 45%, var(--ink)); }
 :root[data-theme="dark"] { --canvas-accent: var(--game-accent); }
+
+/* ---- accent TEXT owes 4.5, not the canvas's 3:1 ----
+   The shared sheet inks accent text with `color-mix(--game-accent 55%,
+   --ink)`. Measured on paper, over the surfaces these actually sit on, that
+   clears AA for five of the six accents and misses for --sunny:
+
+     .hud-stat dd  (round/score/best, 16.8px/900, on the hud-stat fill)
+        coral 5.57 · sunny 4.09 · mint 5.37 · sky 5.71 · lilac 6.01 · gum 5.40
+     .handoff-link (18.4px bold — just under the 18.66px large-text line,
+                    so it owes the full 4.5 — on the hand-off bar's tint)
+        coral 5.42 · sunny 4.11 · mint 5.27 · sky 5.59 · lilac 5.85 · gum 5.29
+
+   The canvas already solves this one rung darker: --canvas-accent is the 45%
+   mix, whose worst case is 5.01 (hud) / 5.03 (link). So the chrome, which
+   owes the HIGHER bar because it is text, was using the WEAKER mix than the
+   canvas, which owes 3:1. Spending one value everywhere fixes sunny, costs
+   the other five nothing visible, and keeps the HUD number and the toast
+   sticker — which print the same score in the same instant — the same
+   colour. On dark, --canvas-accent IS the raw accent, so these are a no-op
+   there and the night studio is untouched.
+   The real fix is the 55% in the shared block above the marker; this is the
+   part a drill can do for itself without breaking the byte-identical rule. */
+:root[data-theme="light"] .hud-stat dd,
+:root[data-theme="light"] .handoff-link,
+:root[data-theme="light"] .toast .toast-accent { color: var(--canvas-accent); }
+
+/* The input chip's term. `<dd id="inputMode">` is fixed by protocol v1, and a
+   <dd> with no <dt> is not a legal description-list group: the value is read
+   with no term, or hung off the term before it — "best: scoring for mouse or
+   trackpad". The chip's own sentence already names itself on screen, so the
+   term is for assistive tech only. Not `display: none` / `visibility: hidden`,
+   which would take it out of the accessibility tree too and change nothing. */
+.hud-input-term {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}

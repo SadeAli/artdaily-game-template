@@ -25,14 +25,20 @@
 </script>
 </head>
 <body>
-<div class="topbar">
-  <a class="backlink" href="https://artdaily.sadeali.com/">← artdaily</a>
+<!-- A landmark, not a bare div: the back link and the theme toggle are the
+     only controls outside <main>, and content in no landmark at all is
+     content a screen-reader player skipping by region never lands on. -->
+<header class="topbar">
+  <!-- The arrow is decoration, and it is decoration INSIDE A LINK NAME —
+       unhidden it makes the accessible name "leftwards arrow artdaily",
+       which is what a links list reads out of context. -->
+  <a class="backlink" href="https://artdaily.sadeali.com/"><span aria-hidden="true">←</span> artdaily</a>
   <div class="topbar-spacer"></div>
   <button class="iconbtn" id="themeToggle" aria-label="Toggle light or dark theme" title="Toggle theme" hidden>
     <svg class="ic-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
     <svg class="ic-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
-</div>
+</header>
 
 <main class="stage game-wide">
   <div class="term">
@@ -47,8 +53,13 @@
           <div class="hud-stat"><dt>round</dt><dd id="hudRound">–</dd></div>
           <div class="hud-stat"><dt>score</dt><dd id="hudScore">–</dd></div>
           <div class="hud-stat"><dt>best</dt><dd id="hudBest">–</dd></div>
-          <!-- The SDK fills and unhides this; keep the id (protocol v1). -->
-          <div class="hud-stat hud-input"><dd id="inputMode" hidden></dd></div>
+          <!-- The SDK fills and unhides this; keep the id (protocol v1).
+               The <dt> is for assistive tech only (hidden below the CSS
+               marker): a <dd> alone is not a legal description-list group,
+               and an orphan value is either read with no term at all or
+               hung off the one before it — "best: scoring for mouse or
+               trackpad", which is a HUD that lies. -->
+          <div class="hud-stat hud-input"><dt class="hud-input-term">input</dt><dd id="inputMode" hidden></dd></div>
         </dl>
       </div>
 

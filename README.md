@@ -114,6 +114,13 @@ Then the rest of the bar:
   watercolor accents are decorative-strength on paper: on the light sheet
   the raw palette measures 1.97–3.48:1, so meaning goes in `--canvas-accent`
   (defined below the CSS marker), never in the raw `--game-accent` wash
+- **4.5 for accent *text*, which is a higher bar than the canvas owes.**
+  The shared sheet inks the HUD numbers and the hand-off link at
+  `color-mix(--game-accent 55%, --ink)` — one rung *lighter* than the
+  canvas's 45% — so on paper `--sunny` lands at **4.09** (HUD) and **4.11**
+  (link) while the other five accents sit at 5.27–6.01. The template
+  re-points all three at `--canvas-accent` below the marker (worst case
+  5.01, dark untouched); keep that rule if you change the accent
 - **one live region — the hint line.** Two of them written in the same tick
   queue up and say the same thing twice; the toast is a sticker
   (`aria-hidden`), not a second voice. The SDK's standalone hand-off bar
@@ -194,5 +201,10 @@ Then the rest of the bar:
   score hand-off bar keeps its link node across rounds, so a keyboard
   player who tabbed onto it does not lose focus when a round ends
 - Reduced-motion and keyboard-focus styles (3px `--focus` ring, 3.9:1 on
-  paper / 6.6:1 in the night studio), one live region, and decorative
-  glyphs (`→ ✓ ↻`) hidden from screen readers rather than read out
+  paper / 6.6:1 in the night studio), one live region, landmarks around
+  every control (the top bar is a `<header>`, so the back link and theme
+  toggle are not stranded outside `<main>`), a visually hidden `<dt>` for
+  the `#inputMode` chip so the HUD's description list is a legal one, and
+  decorative glyphs (`← → ✓ ↻`) hidden from screen readers rather than read
+  out — including inside accessible *names*, which is where it matters most:
+  the back link announced "leftwards arrow artdaily" until it didn't
