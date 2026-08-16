@@ -100,6 +100,25 @@
     return dir ? much + ' ' + dir : much + ' out';
   }
 
+  /* The per-attempt sentence: the words and the number always travel
+     TOGETHER, in that order. A number alone is not a reveal, and words
+     alone leave the player unable to place the correction on the scale the
+     HUD and the round-end line both use. Total, like everything up here —
+     a non-finite accuracy drops the number rather than printing "NaN out
+     of 100" into a live region that gets read out loud. */
+  function tapWords(words, acc) {
+    /* Only a real, non-empty STRING counts as words. `String(x || fallback)`
+       is not the same guard: [] and {} are truthy, so they sailed past it and
+       printed "" and "[object Object]" into a line that gets read aloud, and
+       -Infinity printed itself. */
+    var head = (typeof words === 'string' && words.trim()) ? words : 'Off the mark';
+    var n = Number(acc);
+    if (!isFinite(n)) return head;
+    /* Clamped for the same reason report() clamps: the sentence says "out of
+       100", so it may not print 1e+308. */
+    return head + ' — ' + Math.round(Math.max(0, Math.min(100, n))) + ' out of 100 for that tap';
+  }
+
   /* ---- the round's lesson, which no single attempt can show ----
      Five taps that all land low and right are not five random misses, they
      are one habit, and naming it is the only correction that outlives the
@@ -232,9 +251,30 @@
      number printed under it. An offset survives every resize exactly. */
   var reveal = null;
   var revealTimer = null;
-  /* Long enough to read the mark, short enough that five of them do not
-     turn a coffee-break drill into a slideshow. */
-  var REVEAL_MS = 620;
+  /* THE BEAT MUST OUTLAST THE READING, or the reveal is decoration.
+     Budget it against the text that is NEW on that screen, at ~200 words
+     per minute — a beginner reading unfamiliar copy while also looking at
+     a picture. On a repeat reveal only the clause changes ("Way out, low
+     and right — 0", ~1.6s); the rest of the sentence is furniture the eye
+     already knows. At 620ms, where this started, even that clause was gone
+     before it could be read: the drill did the whole job of teaching and
+     then wiped the lesson half a second later. It was worse for a
+     screen-reader player, because #hint is the drill's ONE live region and
+     the next prompt overwrote the reveal mid-sentence.
+     Four of these add ~7s to a round — a beat, not a slideshow. */
+  var REVEAL_MS = 1800;
+  /* The FIRST reveal of the sitting is the only one where nothing is
+     furniture yet: a dashed line, a dotted ring, a mark and a sentence,
+     all new at once, plus the line that names the ring. Budget the whole
+     score sentence as new (~3.1s) with room for the ring note, which is
+     read while looking at the thing it points to. It happens once. */
+  var FIRST_REVEAL_MS = 4000;
+
+  /* Pure, so the pacing can be reasoned about (and tested) without a
+     canvas. `done` is how many items of this round have been scored. */
+  function revealBeat(roundNo, done) {
+    return (roundNo === 1 && done === 1) ? FIRST_REVEAL_MS : REVEAL_MS;
+  }
 
   function clearReveal() {
     clearTimeout(revealTimer);
@@ -288,9 +328,16 @@
   }
 
   /* Says the verb and the goal in the words for the thing actually drawn,
-     so the first screen teaches without the how-to being opened. */
-  function itemHint(idx) {
-    return 'Target ' + (idx + 1) + ' of ' + TARGETS_PER_ROUND + ' — tap the centre dot.';
+     so the first screen teaches without the how-to being opened. On the
+     very first screen it also says how the drill MARKS you: "tap the
+     centre dot" is the verb, but nothing on a bare ring says whether a
+     near miss is worth 90 or nothing at all, and that is the one rule a
+     beginner needs before their first attempt rather than after it. One
+     clause, on the opening screen only — from item two on, the reveals
+     have been teaching it in numbers. */
+  function itemHint(idx, teachGoal) {
+    var s = 'Target ' + (idx + 1) + ' of ' + TARGETS_PER_ROUND + ' — tap the centre dot.';
+    return teachGoal ? s + ' The closer you land, the more it scores.' : s;
   }
 
   function newRound() {
@@ -305,7 +352,7 @@
     hudRound.textContent = String(round);
     hudScore.textContent = '–';
     hideToast();          /* the last round's score must not hang over this one */
-    hint.textContent = itemHint(0);
+    hint.textContent = itemHint(0, round === 1);
     draw();
   }
 
@@ -504,13 +551,20 @@
       words: missPhrase(dx, dy, zero),
       acc: Math.round(acc),   /* what the picture is worth, for describeSheet() */
     };
-    hint.textContent = reveal.words + ' — ' + Math.round(acc) + ' out of 100 for that tap.';
+    /* The dotted ring appears for the first time UNDER this sentence, and
+       an unexplained new circle is jargon that happens to be drawn instead
+       of written. Named once, on the spot, on the only screen where it is
+       new — the third first-thirty-seconds question in GAME_GUIDE.md
+       applies to what you draw, not only to what you type. */
+    var teachScale = (round === 1 && targetIdx === 1);
+    hint.textContent = tapWords(reveal.words, acc) + '.' +
+      (teachScale ? ' The dotted ring is where a tap stops scoring.' : '');
     draw();
     /* The last tap does NOT wait on the beat: finishing is synchronous, so
        report() cannot be raced by "new round" landing during the reveal.
        The reveal simply stays on the canvas behind the score. */
     if (targetIdx >= TARGETS_PER_ROUND) { finishRound(); return; }
-    revealTimer = setTimeout(nextItem, REVEAL_MS);
+    revealTimer = setTimeout(nextItem, revealBeat(round, targetIdx));
   });
 
   function nextItem() {
@@ -518,7 +572,7 @@
     if (!playing) return;     /* the round was abandoned while the reveal was up */
     reveal = null;
     nextTarget(targetIdx);
-    hint.textContent = itemHint(targetIdx);
+    hint.textContent = itemHint(targetIdx, false);
     draw();
   }
 
@@ -530,7 +584,10 @@
      The last tap keeps its words here too: item five is an attempt like
      any other and is owed the same reveal as items one to four. And the
      round's own correction goes last, when there is one — the per-item
-     words fix the next tap, the bias line fixes the next round. */
+     words fix the next tap, the bias line fixes the next round.
+     `last` arrives already carrying its own NUMBER (see tapWords): a bare
+     "Way out, low and right. Round done — 74 out of 100." reads as though
+     74 were what that last tap was worth. */
   function roundWords(res, last, bias) {
     var head = (last ? last + '. ' : '') + 'Round done — ' + res.score + ' out of 100';
     var tail = bias ? ' ' + bias : '';
@@ -552,7 +609,8 @@
     describeSheet();
     hudScore.textContent = String(res.score);
     hudBest.textContent = res.best === null ? '–' : String(res.best);
-    hint.textContent = roundWords(res, reveal && reveal.words, roundBias(marks, zeroPoint()));
+    hint.textContent = roundWords(res, reveal && tapWords(reveal.words, reveal.acc),
+                                  roundBias(marks, zeroPoint()));
     showToast(res.isFirst ? 'first score ' + res.score + ' / 100'
             : res.isNewBest ? 'new best! ' + res.score + ' / 100'
             : 'score ' + res.score + ' / 100',

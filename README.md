@@ -46,13 +46,20 @@ Open it cold, the way a beginner does, and answer the four
 first-thirty-seconds questions before anything else:
 
 - does the **first screen teach the verb** — hint line + visible
-  affordances, before anyone opens the how-to?
+  affordances, before anyone opens the how-to — **and say how it marks
+  you**? One clause, opening screen only: nothing on a bare ring says
+  whether a near miss is worth 90 or nothing at all
 - is the **first item genuinely easy** (an easier item, not kinder
   scoring — random placement will eventually open a round in a corner)?
-- is any **word jargon** the drill does not teach on the spot?
-- is the **first reveal a lesson or just a number**? And does round one
-  say what the score is *for*, instead of "new best!" — which is
-  trivially true on it, so branch on `report().isFirst`
+- is any **word jargon** the drill does not teach on the spot — including
+  **jargon you drew** rather than typed, like a dotted ring the score is
+  measured on that nothing on screen ever names?
+- is the **first reveal a lesson or just a number**, and does it **stay up
+  long enough to read**? Budget the beat against the text that is new on
+  that screen at ~200 wpm; the demo's was 620ms for a clause needing 1.6s,
+  which is the same as never writing it. And does round one say what the
+  score is *for*, instead of "new best!" — which is trivially true on it,
+  so branch on `report().isFirst`
 
 Then the rest of the bar:
 
@@ -130,7 +137,10 @@ Then the rest of the bar:
   measured on the old one), then names the miss in plain words ("a little
   high and left") from a pure function graded against the same tolerance
   as the score, with its bands cut where the score changes character so
-  the adjective never oversells the number. At round end a second pure
+  the adjective never oversells the number. It holds for **1.8s — 4s on
+  the first reveal of the sitting**, which also names the dotted ring on
+  the spot, because a beat too short to read is a lesson written and then
+  wiped (`revealBeat` is pure, so the pacing is testable too). At round end a second pure
   function names the round's *habit* if the misses leaned one way, and
   says which way to aim next time. The target is stored as canvas
   fractions but the mark as the **pixel offset that was scored**, so
