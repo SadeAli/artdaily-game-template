@@ -297,6 +297,17 @@
      number printed under it. An offset survives every resize exactly. */
   var reveal = null;
   var revealTimer = null;
+  /* How many reveals this SITTING has shown. NEVER reset by newRound(): the
+     screen that needs the long beat and the one-off naming is the player's
+     FIRST reveal, which is not the same thing as round one's first item the
+     moment they press the big primary button before tapping anything — the
+     likeliest thing a beginner does with a control they do not understand
+     yet. Keyed on `round === 1` it silently downgraded exactly the screen
+     the budget below was written for: the beat fell 4000ms → 1800ms, the
+     opening line stopped saying how the drill marks you, and the dotted
+     ring — the scale the printed number is measured on — was never named at
+     all, on the one screen where it is new. */
+  var revealsSeen = 0;
   /* THE BEAT MUST OUTLAST THE READING, or the reveal is decoration.
      Budget it against the text that is NEW on that screen, at ~200 words
      per minute — a beginner reading unfamiliar copy while also looking at
@@ -316,10 +327,11 @@
      read while looking at the thing it points to. It happens once. */
   var FIRST_REVEAL_MS = 4000;
 
-  /* Pure, so the pacing can be reasoned about (and tested) without a
-     canvas. `done` is how many items of this round have been scored. */
-  function revealBeat(roundNo, done) {
-    return (roundNo === 1 && done === 1) ? FIRST_REVEAL_MS : REVEAL_MS;
+  /* Pure, so the pacing can be reasoned about (and tested) without a canvas.
+     `seen` is how many reveals this SITTING has already shown — not how far
+     into a round we are, and not which round it is. See revealsSeen. */
+  function revealBeat(seen) {
+    return seen ? REVEAL_MS : FIRST_REVEAL_MS;
   }
 
   function clearReveal() {
@@ -398,7 +410,7 @@
     hudRound.textContent = String(round);
     hudScore.textContent = '–';
     hideToast();          /* the last round's score must not hang over this one */
-    hint.textContent = itemHint(0, round === 1);
+    hint.textContent = itemHint(0, revealsSeen === 0);
     draw();
   }
 
@@ -588,6 +600,8 @@
     accuracies.push(acc);
     marks.push({ dx: dx, dy: dy });
     targetIdx += 1;
+    var seen = revealsSeen;      /* reveals shown BEFORE this one, this sitting */
+    revealsSeen += 1;
     reveal = {
       tf: target,
       dx: dx,
@@ -604,21 +618,47 @@
       zero: zero,
       words: missPhrase(dx, dy, zero),
       acc: Math.round(acc),   /* what the picture is worth, for describeSheet() */
+      /* The beat is kept WITH the reveal so the pause/resume below can hand
+         back the same budget it interrupted, rather than recomputing one. */
+      beat: revealBeat(seen),
     };
     /* The dotted ring appears for the first time UNDER this sentence, and
        an unexplained new circle is jargon that happens to be drawn instead
        of written. Named once, on the spot, on the only screen where it is
        new — the third first-thirty-seconds question in GAME_GUIDE.md
        applies to what you draw, not only to what you type. */
-    var teachScale = (round === 1 && targetIdx === 1);
     hint.textContent = tapWords(reveal.words, acc) + '.' +
-      (teachScale ? ' The dotted ring is where a tap stops scoring.' : '');
+      (seen ? '' : ' The dotted ring is where a tap stops scoring.');
     draw();
     /* The last tap does NOT wait on the beat: finishing is synchronous, so
        report() cannot be raced by "new round" landing during the reveal.
        The reveal simply stays on the canvas behind the score. */
     if (targetIdx >= TARGETS_PER_ROUND) { finishRound(); return; }
-    revealTimer = setTimeout(nextItem, revealBeat(round, targetIdx));
+    revealTimer = setTimeout(nextItem, reveal.beat);
+  });
+
+  /* A hidden tab is not a reading player. Background timers keep running
+     (throttled, never cancelled), so a reveal that is alt-tabbed away from
+     is spent on a tab nobody is looking at: the player comes back to the
+     next target with the lesson already wiped — the exact failure the beat
+     budget above exists to prevent, only total. Park the advance while the
+     page is hidden and hand the beat back in full on return.
+     This timer can never file a round: it only advances an ITEM, and the
+     last item finishes synchronously (see finishRound). The re-arm is
+     guarded on `playing`, so a round-end reveal — which is meant to stay up
+     until "new round" — is never advanced past. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (revealTimer !== null) { clearTimeout(revealTimer); revealTimer = null; }
+      return;
+    }
+    /* `|| REVEAL_MS` because a setTimeout handed `undefined` fires on the
+       next tick — a reveal built without a beat would come back from a
+       hidden tab and vanish instantly, which is the bug this exists to fix
+       wearing a disguise. */
+    if (playing && reveal && revealTimer === null) {
+      revealTimer = setTimeout(nextItem, reveal.beat || REVEAL_MS);
+    }
   });
 
   function nextItem() {

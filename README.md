@@ -60,6 +60,13 @@ first-thirty-seconds questions before anything else:
   which is the same as never writing it. And does round one say what the
   score is *for*, instead of "new best!" — which is trivially true on it,
   so branch on `report().isFirst`
+- does everything you teach **once** survive a press of the primary
+  button? "First of the sitting" and "round 1, item 1" are the same screen
+  only until a beginner presses *new round* before their first tap, which
+  is the likeliest thing they do with a control they do not understand
+  yet. Hang the long beat, the one-off ring note and the opening scoring
+  clause off a counter `newRound` does not reset (`revealsSeen`), never off
+  `round === 1` — keyed on the round, one press cost all three at once
 
 Then the rest of the bar:
 
@@ -96,9 +103,11 @@ Then the rest of the bar:
   execute, so the player invents one, and that is how a lean turns into an
   overcorrection
 - **44px touch targets**, pointerId-guarded strokes
-- **the loop feels listened to**: full-rate samples (`ArtDaily.samples`),
+- **the loop feels listened to**: full-rate samples (`ArtDaily.samples`)
+  with the canvas rect measured **once per event, not once per sample**,
   one repaint per frame, no `getComputedStyle` inside the repaint, nothing
-  animated from JS that ignores `prefers-reduced-motion`
+  animated from JS that ignores `prefers-reduced-motion`, and no beat left
+  running while the tab is hidden
 - **3:1 in both themes** for anything meaning-bearing on canvas — including
   anything you drew at a low `globalAlpha`, because alpha is contrast (the
   demo's "faint" zero-ring was 1.74:1 on paper until it wasn't). The
@@ -136,7 +145,12 @@ Then the rest of the bar:
   repaints, and a drill that scores geometry off the delivered events
   alone loses the corner of every fast stroke — so a confident line scores
   worse than a timid one. Total: always an array, `[ev]` where the browser
-  cannot coalesce
+  cannot coalesce. Hoist the canvas rect above that loop — the usual
+  `pos(ev)` helper measures the element itself, so dropping it in
+  re-measures dozens of times a frame for a number that cannot have moved
+  between two samples. (And if you only want where the hand is *now*, the
+  dispatched event already is the newest sample — `samples` is for the
+  shape *between* two frames)
 - **A loop that stays out of the way**: inks are resolved once per theme
   instead of once per repaint (a repaint follows a text change, so each
   one was flushing a style recalculation), and both resize sources are
@@ -157,7 +171,12 @@ Then the rest of the bar:
   the adjective never oversells the number. It holds for **1.8s — 4s on
   the first reveal of the sitting**, which also names the dotted ring on
   the spot, because a beat too short to read is a lesson written and then
-  wiped (`revealBeat` is pure, so the pacing is testable too). Those words come from
+  wiped (`revealBeat` is pure, so the pacing is testable too). "Of the
+  sitting" is counted by `revealsSeen`, which `newRound` never resets, so a
+  beginner pressing the primary button before their first tap cannot
+  downgrade that screen; and the beat is **parked while the tab is hidden**
+  and handed back in full on return, because a background timer would
+  otherwise spend the whole lesson on a tab nobody is looking at. Those words come from
   **one ladder** (`sizeWord`) that the whole drill spends, so "a little" means the
   same thing everywhere it is printed. At round end a second pure
   function names the round's *habit* if the misses leaned one way, and
