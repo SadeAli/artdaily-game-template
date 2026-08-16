@@ -113,10 +113,18 @@
        dangerous one — "dead on" beside a score of 12 reads as the drill
        being broken, which is exactly what it would be. */
     if (!isFinite(m) || m < 0 || !isFinite(t) || t <= 0) return 'well';
+    /* Every rung is CLOSED at its top, `<=`, including this last one. It
+       used to be the one `<` in the ladder, which put the band edges half a
+       step out of line with the contract three comments up (and with the copy
+       in GAME_GUIDE.md): "20+ well · under 20 way" reads 20 as a `well`, and
+       a score of exactly 20 came back "Way out". One rung graded on a
+       different comparison than its four neighbours is the shape a later
+       edit gets wrong, and it is the harshest rung in the drill — the place
+       to be exact about which side of the line a player is on. */
     if (m <= t * 0.08) return 'dead on';
     if (m <= t * 0.25) return 'a hair';
     if (m <= t * 0.5) return 'a little';
-    if (m < t * 0.8) return 'well';
+    if (m <= t * 0.8) return 'well';
     return 'way';
   }
 
