@@ -88,8 +88,13 @@ Then the rest of the bar:
   screenless tablet, so the strictest tolerance in the table is also what
   the player who cannot see their own hand gets
 - **the round names its own habit** when there is one — five misses that
-  all lean the same way are one mistake, and saying "aim high and left
-  next round" is the only correction that outlives the round
+  all lean the same way are one mistake, and saying "aim **a little** high
+  and left next round" is the only correction that outlives the round. Say
+  how far as well as which way, from the **same ladder of words** the
+  per-attempt reveals spend (`sizeWord`), measured only along the axes that
+  actually leaned: a direction with no size is not something a hand can
+  execute, so the player invents one, and that is how a lean turns into an
+  overcorrection
 - **44px touch targets**, pointerId-guarded strokes
 - **the loop feels listened to**: full-rate samples (`ArtDaily.samples`),
   one repaint per frame, no `getComputedStyle` inside the repaint, nothing
@@ -102,7 +107,10 @@ Then the rest of the bar:
   (defined below the CSS marker), never in the raw `--game-accent` wash
 - **one live region — the hint line.** Two of them written in the same tick
   queue up and say the same thing twice; the toast is a sticker
-  (`aria-hidden`), not a second voice
+  (`aria-hidden`), not a second voice. The SDK's standalone hand-off bar
+  obeys the same rule from the other side — it announces itself once, on its
+  first paint of the sitting, then goes quiet rather than reading the score
+  back over your round-end sentence every round
 - **the canvas's `aria-label` is the picture, kept current** by
   `describeSheet()` in `js/game.js` — a name set once in the HTML describes
   a blank rectangle for the whole session
@@ -149,9 +157,12 @@ Then the rest of the bar:
   the adjective never oversells the number. It holds for **1.8s — 4s on
   the first reveal of the sitting**, which also names the dotted ring on
   the spot, because a beat too short to read is a lesson written and then
-  wiped (`revealBeat` is pure, so the pacing is testable too). At round end a second pure
+  wiped (`revealBeat` is pure, so the pacing is testable too). Those words come from
+  **one ladder** (`sizeWord`) that the whole drill spends, so "a little" means the
+  same thing everywhere it is printed. At round end a second pure
   function names the round's *habit* if the misses leaned one way, and
-  says which way to aim next time. The target is stored as canvas
+  says which way **and how far** to aim next time, in that same ladder —
+  measured only along the axes that actually leaned. The target is stored as canvas
   fractions but the mark as the **pixel offset that was scored**, so
   rotating the phone while the reveal is up cannot redraw a 26px miss as a
   5px one and contradict the 61 printed under it. Replace the geometry, keep the shape —

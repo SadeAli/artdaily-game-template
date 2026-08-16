@@ -79,6 +79,36 @@
     return v + ' and ' + h;
   }
 
+  /* ONE ladder of sizes for the whole drill. The per-attempt words and the
+     round-end correction are cut at the SAME fractions of the SAME tolerance
+     and spend the same five words, so the player is never taught two scales
+     for "how far off" — they learn what "a little" is worth once, from five
+     reveals a round, and the round's correction can then use it as a unit.
+     Lowercase; missPhrase() capitalises the one that opens a sentence.
+
+     Cut where the SCORE changes character, not at tidy fractions of the
+     tolerance. The adjective is printed in the same sentence as the number —
+     "A hair low — 71 out of 100" reads as the drill lying to you, and a
+     player who is told they were a hair off stops correcting. The score is
+     100 - 100*d/z, so these edges are, as scores:
+       92+ dead on · 75+ a hair · 50+ a little · 20+ well · under 20 way.
+     Total: junk in, a usable word out (the widest one, never a flattering
+     one — a broken measurement must not read as a near miss). */
+  function sizeWord(d, z) {
+    var m = Number(d), t = Number(z);
+    /* `m < 0` is rejected rather than folded: a magnitude is never negative,
+       so a negative one means the caller handed over a signed delta by
+       mistake, and the flattering answer to a broken measurement is the
+       dangerous one — "dead on" beside a score of 12 reads as the drill
+       being broken, which is exactly what it would be. */
+    if (!isFinite(m) || m < 0 || !isFinite(t) || t <= 0) return 'well';
+    if (m <= t * 0.08) return 'dead on';
+    if (m <= t * 0.25) return 'a hair';
+    if (m <= t * 0.5) return 'a little';
+    if (m < t * 0.8) return 'well';
+    return 'way';
+  }
+
   /* Graded against the SAME zero-point the score uses, so the words and
      the number can never disagree: "dead centre" next to a 40 would read
      as the drill being broken. Total — NaN, a zero tolerance and a
@@ -87,17 +117,19 @@
     var d = Math.hypot(Number(dx), Number(dy));
     if (!isFinite(d)) return 'Off the mark';
     var z = (isFinite(zero) && zero > 0) ? zero : 1;
+    var much = sizeWord(d, z);
+    if (much === 'dead on') return 'Dead centre';
     var dir = missDirection(dx, dy);
-    /* Cut the bands where the SCORE changes character, not at tidy fractions
-       of the tolerance. The adjective is printed in the same sentence as the
-       number — "A hair low — 71 out of 100" reads as the drill lying to you,
-       and a player who is told they were a hair off stops correcting. The
-       score here is 100 - 100*d/z, so these edges are, as scores:
-         92+ dead centre · 75+ a hair · 50+ a little · 20+ well · under 20 way out. */
-    if (d <= z * 0.08) return 'Dead centre';
-    if (d >= z * 0.8) return dir ? 'Way out, ' + dir : 'Way out';
-    var much = d <= z * 0.25 ? 'A hair' : d <= z * 0.5 ? 'A little' : 'Well';
-    return dir ? much + ' ' + dir : much + ' out';
+    /* The two big bands carry "out" so the direction reads as a clause:
+       "Well out, low and right", parallel to "Way out, low and right". The
+       bare adjective printed broken English — "Well low and right" — into
+       the one sentence a beginner reads after every single attempt. */
+    if (much === 'well' || much === 'way') {
+      var head = (much === 'way' ? 'Way' : 'Well') + ' out';
+      return dir ? head + ', ' + dir : head;
+    }
+    var lead = much.charAt(0).toUpperCase() + much.slice(1);
+    return dir ? lead + ' ' + dir : lead + ' out';
   }
 
   /* The per-attempt sentence: the words and the number always travel
@@ -154,7 +186,16 @@
     var fv = v === 'high' ? 'low' : v === 'low' ? 'high' : '';
     var fh = h === 'left' ? 'right' : h === 'right' ? 'left' : '';
     var fix = (fv && fh) ? fv + ' and ' + fh : (fv || fh);
-    return 'Most taps landed ' + was + ' — aim ' + fix + ' next round.';
+    /* HOW FAR to aim off, in the same five words the round's reveals just
+       spent teaching (sizeWord). "Aim high and left" is a direction; a hand
+       cannot act on a direction without a size, and the player would have to
+       invent one — which is how a corrected habit turns into an overcorrected
+       one. Measured only along the axes that actually leaned, so a sideways
+       habit is never sized by a vertical wobble the sentence says nothing
+       about. The gate above is a tenth of the tolerance and the ladder's top
+       rung is a twelfth, so this can never come back "aim dead on left". */
+    var lean = Math.hypot(h ? mx : 0, v ? my : 0);
+    return 'Most taps landed ' + was + ' — aim ' + sizeWord(lean, z) + ' ' + fix + ' next round.';
   }
 
   /* ---- where a target sits, in words (pure, total) ----
@@ -622,8 +663,14 @@
     describeSheet();
     hudScore.textContent = String(res.score);
     hudBest.textContent = res.best === null ? '–' : String(res.best);
+    /* The habit is graded against the tolerance the ROUND was scored under,
+       taken from the reveal that is still on screen — not from ease() again.
+       A pen plugged in during the last item halves the live zero-point, and
+       the bias line would then re-judge five finished taps against a
+       tolerance none of them were scored with: the same "history does not
+       get re-judged" rule the reveal's dotted ring already follows. */
     hint.textContent = roundWords(res, reveal && tapWords(reveal.words, reveal.acc),
-                                  roundBias(marks, zeroPoint()));
+                                  roundBias(marks, (reveal && reveal.zero) || zeroPoint()));
     showToast(res.isFirst ? 'first score ' + res.score + ' / 100'
             : res.isNewBest ? 'new best! ' + res.score + ' / 100'
             : 'score ' + res.score + ' / 100',
