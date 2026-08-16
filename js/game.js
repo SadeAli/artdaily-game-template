@@ -178,7 +178,12 @@
      not a shape. Measured on the light sheet, raw --game-accent lands at
      2.9:1 for the template's mint, 3.0 for coral, 2.9 for bubblegum and
      1.97 for sunny — under the 3:1 a graphic that carries information owes.
-     Mixed toward --ink, the whole palette clears it with room (worst 5.3).
+     Mixed toward --ink, the whole palette clears it with room: worst 4.6
+     (sunny), measured WHERE THE MARK ACTUALLY SITS — over the canvas's dot
+     grid (--ink at 8% on --card), not over bare --card, where that same
+     worst case flatters itself to 5.3. Quote the number you measured
+     against the real backdrop; the bare-swatch read is the trap the
+     accessibility section of GAME_GUIDE.md names.
      Defined as --canvas-accent below the marker in css/style.css.
 
      Every one of these is a custom property on :root and the ONLY thing
@@ -443,8 +448,16 @@
        is no reveal at all. */
     var px = t.x + (isFinite(rv.dx) ? rv.dx : 0);
     var py = t.y + (isFinite(rv.dy) ? rv.dy : 0);
-    px = Math.max(4, Math.min(W - 4, px));
-    py = Math.max(4, Math.min(H - 4, py));
+    /* Clamped by the mark's OWN outer edge, not by its centre. The mark is
+       a radius-6 circle stroked at lineWidth 2, so its ink reaches 7px out;
+       holding the centre 4px in still cut 3px off the ring whenever a tap
+       landed near the sheet's edge — and a reveal whose mark is sliced by
+       the border is the one reveal a player cannot read the direction off.
+       Guarded like targetAt(): a canvas too small to hold the mark at all
+       centres it rather than clamping past itself. */
+    var MARK_EDGE = 7;
+    px = (W > MARK_EDGE * 2) ? Math.max(MARK_EDGE, Math.min(W - MARK_EDGE, px)) : W / 2;
+    py = (H > MARK_EDGE * 2) ? Math.max(MARK_EDGE, Math.min(H - MARK_EDGE, py)) : H / 2;
     /* The scale the number is measured on, drawn faintly — where the score
        runs out. Without it the only circle on the sheet is the ring you AIM
        at, which is a different size for a different reason (startRadius vs
