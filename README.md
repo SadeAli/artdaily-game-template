@@ -81,6 +81,20 @@ Then the rest of the bar:
   press that does not mean "here" — right-click, middle-click, a pen's
   barrel button — is ignored too (`if (ev.button > 0) return;`, which
   costs a finger and a pen tip nothing since both report `button` 0)
+- **a palm is not an attempt** — `if (ArtDaily.isPalm(ev)) return;`. The
+  heel of the hand lands before the nib, so first-contact-wins burns the
+  item on a contact nobody made and the pen arrives to find the reveal
+  already up. The SDK owns the test because it is the only thing that sees
+  a nib *hovering*, from a capture-phase `window` listener; a guard fed by
+  your own canvas events goes blind exactly when the palm is still down. A
+  finger-only player is never once tested against a pen
+- **the ignored presses still get `preventDefault()`** — a canvas is never
+  a text surface, and the presses a drill ignores are the ones a beginner
+  makes most. Cancelling below the state guards leaves a poke during the
+  1.8s reveal (6.3s on the first) dragging a text selection over the hint
+  line, or popping an iOS callout across the picture the beat exists to
+  let them read. Order is: `button > 0` out first (the context menu is
+  wanted), then cancel, then the ignore rules
 - **no dead states** — do nothing · press done immediately · draw during
   a reveal · resize mid-item · press "new round" mid-round
 - **reveal after every attempt**, truth over their attempt, delta named
@@ -178,6 +192,12 @@ Then the rest of the bar:
   between two samples. (And if you only want where the hand is *now*, the
   dispatched event already is the newest sample — `samples` is for the
   shape *between* two frames)
+- **Palm rejection for pen users**: `ArtDaily.isPalm(ev)` is true for a
+  `touch` contact within 700ms of anything the pen did — contact *or bare
+  hover*, which is the half your own canvas handler cannot see. One call at
+  the top of `pointerdown`, and the wrist stops stealing the attempt. Total:
+  a session with no pen in it never returns true, so a finger-only player is
+  untouched
 - **A loop that stays out of the way**: inks are resolved once per theme
   instead of once per repaint (a repaint follows a text change, so each
   one was flushing a style recalculation), and both resize sources are

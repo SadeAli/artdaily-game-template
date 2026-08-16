@@ -734,12 +734,6 @@
   }
 
   canvas.addEventListener('pointerdown', function (ev) {
-    /* Second finger of a two-finger tap must not burn a second target,
-       and neither may a tap that lands while the previous reveal is still
-       up — the next target has not been drawn yet, so there is nothing it
-       could honestly be judged against. Ignored, never counted against
-       them: nothing is ever punished for a UI reason. */
-    if (!playing || !target || reveal || ev.isPrimary === false) return;
     /* Only a press that MEANS "here". A right-click on the canvas is a
        pointerdown like any other — primary pointer, real coordinates — so it
        used to burn an item and score wherever the cursor happened to be,
@@ -747,9 +741,44 @@
        a middle-click, and for a pen's barrel button. Nothing is punished for
        a UI reason: ignore it, do not count it. (`button` is 0 for a finger
        and for a pen's tip, so touch and pen are untouched; an event that
-       carries no `button` at all still passes.) */
+       carries no `button` at all still passes.) Tested FIRST, because it is
+       the one press whose browser default is still wanted. */
     if (ev.button > 0) return;
+    /* Cancelled for every press the sheet ACCEPTS and every press it
+       IGNORES alike. A canvas is never a text surface, and the ignored
+       presses are the ones a beginner makes most: the reveal owns the sheet
+       for 1800ms — 6.3s on the first one — which is exactly long enough for
+       an impatient hand to press and drift a few pixels. Left to the
+       browser, that gesture drags a text selection across the hint line and
+       the HUD, and on a touch screen it is a long-press callout over the
+       very picture the beat exists to let them read. The press is still not
+       counted; it simply stops fighting the hand. Cancelling a press this
+       drill ignores costs nothing — the canvas has no text, no drag and no
+       tabindex to lose. */
     ev.preventDefault();
+    /* A PALM IS NOT AN ATTEMPT. An artist rests the heel of the hand on the
+       glass and the nib lands a moment after it, so first-contact-wins hands
+       the item to the wrist: the target burns on a tap nobody made, scored
+       at whatever distance the palm happened to land, and the pen that was
+       about to make the real one arrives to find the reveal already up. The
+       SDK owns the test rather than each drill, because it is the only thing
+       that sees a nib HOVERING — a guard fed by this canvas's own events
+       goes blind the moment the nib lifts, which is precisely when the palm
+       is still down (ArtDaily.isPalm). Ignored, never counted against them,
+       exactly like the right-click above; a finger-only player is never once
+       tested against a pen.
+       (The `typeof` is a SYNC GUARD, not a pattern to copy: every drill
+       folder vendors its own byte-identical copy of the SDK, and this call
+       landed in the canonical file first. Once the copies are re-synced it is
+       dead weight — write the plain `if (ArtDaily.isPalm(ev)) return;` in
+       your drill, and delete this one when the vendored copy catches up.) */
+    if (typeof ArtDaily.isPalm === 'function' && ArtDaily.isPalm(ev)) return;
+    /* Second finger of a two-finger tap must not burn a second target,
+       and neither may a tap that lands while the previous reveal is still
+       up — the next target has not been drawn yet, so there is nothing it
+       could honestly be judged against. Ignored, never counted against
+       them: nothing is ever punished for a UI reason. */
+    if (!playing || !target || reveal || ev.isPrimary === false) return;
     var t = targetAt(target);
     var p = pointerPos(ev);
     var dx = p.x - t.x, dy = p.y - t.y;
