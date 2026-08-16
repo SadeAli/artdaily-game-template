@@ -390,11 +390,15 @@
        · startRadius(BASE_R) — how big the thing you AIM AT is drawn. A
          screenless tablet aims with the hand out of sight, so it gets the
          biggest dot even though it is the most precise instrument.
-       · ease(BASE_R * 2)    — where the SCORE reaches zero. A mouse pivots
-         at the wrist and cannot creep, so it gets the most room.
+       · ease(BASE_R * 2)    — how much slack a hand needs to EXECUTE. A
+         mouse pivots at the wrist and cannot creep, so it gets the most
+         room. One TERM of the zero-point, not the whole of it: see below.
      Feed the already-enlarged ring into ease() and the two multipliers
      compound: a finger ended up scored more generously than a trackpad,
-     the opposite of what the profile table says. Always ease the base. */
+     the opposite of what the profile table says. Always pass the BASE to
+     each knob, never one knob's answer to the other — and see zeroPoint(),
+     which takes the LARGER of the two because this drill's score is an
+     acquisition and an acquisition is graded by the finding knob. */
   var BASE_R = 22;
 
   function targetRadius() {
@@ -403,8 +407,46 @@
   }
 
   /* Kept off the canvas size on purpose: the same tap must score the same
-     on a phone and a desktop. */
-  function zeroPoint() { return ArtDaily.ease(BASE_R * 2); }
+     on a phone and a desktop.
+
+     AND IT IS THE LARGER OF THE TWO KNOBS, because what this drill scores is
+     an ACQUISITION. The two knobs measure different difficulties and rank the
+     hardware in opposite orders on purpose: ease() is the slack a hand needs
+     to EXECUTE (a mouse pivots at the wrist and cannot creep, so it gets the
+     most, x2.0; a pen the least, x1.0), startRadius() is the slack a hand
+     needs to FIND a target (a screenless tablet works with the hand out of
+     sight, so IT gets the most, x1.7; a mouse the least, x1.0). A drill whose
+     score IS the finding must read its tolerance through the finding knob
+     too, or it grades its least-sighted player hardest — which is exactly
+     what this line used to do. On ease() alone the zero-point was pen 44 /
+     mouse 88 / finger 66, so the edge of the very ring the player was told to
+     aim at was worth 16 out of 100 on a screenless tablet and 75 on a
+     trackpad, and five honestly sloppy taps scored 18 there against 75 on the
+     trackpad. Taking the max makes it pen 75 / mouse 88 / finger 70: the same
+     sloppy round is 52 / 75 / 61 and the trackpad column does not move by a
+     single point. Nobody was made more generous; the worst-served device
+     simply stopped being punished for its hardware.
+
+     A MAX IS NOT A COMPOUND. Never ease(startRadius(r) * 2): the PRODUCT
+     multiplies the two factors together and inverts the ranking all over
+     again (GAME_GUIDE.md). A max is a floor — whichever reason for slack
+     applies to the hardware in the player's hand, they get that one, and
+     neither factor is ever multiplied by the other.
+
+     Both terms are total (finite, > 0) by the SDK's own contract, so the max
+     is too. Note it is startRadius(BASE_R * 2) and not startRadius(BASE_R) * 2:
+     doubling the RESULT puts the multiply outside the SDK, where nothing
+     checks it, and a large-but-finite base overflows there to Infinity — an
+     infinite zero-point makes 1 - err/zero exactly 1, so every wild tap
+     scores a fake 100. Inside startRadius the same multiply is guarded.
+
+     One thing the reveal gets for free: the zero-point is now always wider
+     than the drawn ring by more than drawReveal's `zr > t.r + 3` guard, on
+     every profile at every canvas size — so the scale a score is read
+     against can never be swallowed by the target it is measured from. */
+  function zeroPoint() {
+    return Math.max(ArtDaily.ease(BASE_R * 2), ArtDaily.startRadius(BASE_R * 2));
+  }
 
   /* Fractions → pixels, always inside the canvas whatever its size.
      Takes the fraction pair rather than reading `target`, so the reveal
@@ -559,10 +601,13 @@
     /* The scale the number is measured on, drawn faintly — where the score
        runs out. Without it the only circle on the sheet is the ring you AIM
        at, which is a different size for a different reason (startRadius vs
-       ease), and the two ranked the hardware in opposite orders: landing
-       exactly on the drawn ring is 75 out of 100 on a mouse and 16 on a pen
-       tablet. A player reading a 62 had nothing on screen to read it
-       against. Reveal only — during play it would just be a second ring to
+       ease): landing exactly on the drawn ring is 75 out of 100 on a mouse,
+       51 on a pen tablet and 50 on a finger. A player reading a 62 has
+       nothing else on screen to read it against — and before zeroPoint()
+       took the acquisition floor, that same landing was 75 against 16, the
+       two knobs ranking the hardware in opposite orders in the one picture
+       meant to explain the number. Reveal only — during play it would be a
+       second ring to
        aim at, and the aim ring is the one that matters then. Taken from the
        reveal, not from ease() again — see the note where it is stored. */
     var zr = (isFinite(rv.zero) && rv.zero > 0) ? rv.zero : zeroPoint();

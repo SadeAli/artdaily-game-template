@@ -90,15 +90,23 @@ Then the rest of the bar:
   is *not* the ring the score is measured on (`startRadius` vs `ease`
   rank the hardware in opposite orders), so without it a 62 has nothing
   on screen to be read against
-- **`ease(BASE × k)` with `k` of at least 2** — because the two knobs pull
-  opposite ways, a `k` at or under **1.7** puts the pen profile's zero-point
-  *inside* the ring you drew for it to aim at (a finger crosses over at
-  1.07). At `k = 1` landing dead on the drawn ring is worth **0 on a pen
-  tablet and 0 on a finger while a mouse still scores 50**. Run the
-  ring-edge check in `GAME_GUIDE.md` against your own `BASE` and `k`, and
-  read the **pen** column — `pointerType` cannot tell a Cintiq from a
-  screenless tablet, so the strictest tolerance in the table is also what
-  the player who cannot see their own hand gets
+- **the acquisition floor** —
+  `Math.max(ArtDaily.ease(BASE × 2), ArtDaily.startRadius(BASE × 2))`.
+  `ease` is the slack a hand needs to *execute* (most for a mouse);
+  `startRadius` is the slack it needs to *find* a target (most for a
+  screenless tablet). They rank the hardware in opposite orders on purpose,
+  so a drill whose score **is** the finding — tap it, hit it, stop on it —
+  and that reads `ease` alone grades its least-sighted player hardest: on
+  `ease(BASE × 2)` a landing dead on the drawn ring was worth **16 on a pen
+  tablet against 75 on a trackpad**, and five honestly sloppy taps scored
+  **18** there against 75. The floor makes it 51 / 75 / 50 and 52 / 75 / 61,
+  moving the trackpad column not one point. A max is a floor, never a
+  compound — `ease(startRadius(r) × 2)` multiplies the two factors together
+  and inverts the ranking all over again. Run the ring-edge check in
+  `GAME_GUIDE.md` against your own `BASE`, and read the **pen** column:
+  `pointerType` cannot tell a Cintiq from a screenless tablet, so the
+  strictest row in the table is also what the player who cannot see their
+  own hand gets
 - **the round names its own habit** when there is one — five misses that
   all lean the same way are one mistake, and saying "aim **a little** high
   and left next round" is the only correction that outlives the round. Say
@@ -149,8 +157,10 @@ Then the rest of the bar:
 - **Hardware fairness**: the SDK detects pen / mouse / touch silently and
   fills the `#inputMode` HUD chip. Take tolerances from
   `ArtDaily.ease(BASE)` and aim-at sizes from `ArtDaily.startRadius(BASE)`
-  — both from your own base constant, never one fed into the other
-  (`js/game.js` shows the pattern and why)
+  — both from your own base constant, never one *multiplied by* the other.
+  If what your drill scores is the finding rather than the stroke, take the
+  larger of the two (the acquisition floor above); `js/game.js` shows the
+  pattern and the numbers behind it
 - **Full-rate sampling for strokes**: `ArtDaily.samples(ev)` returns every
   position a `pointermove` actually carried, not just the one the browser
   got round to dispatching. A pen samples far faster than the screen
