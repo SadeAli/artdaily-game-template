@@ -566,10 +566,34 @@
     ctx.stroke();
   }
 
-  /* ---- input → accuracy → score ---- */
+  /* ---- input → accuracy → score ----
+     MAP THROUGH THE CONTENT BOX, not the rect. css/style.css sets
+     `* { box-sizing: border-box }` and gives .game-canvas a 1px border, so
+     getBoundingClientRect() measures the BORDER box while the bitmap is
+     painted into the CONTENT box — two pixels narrower and two shorter. The
+     bare `clientX - rect.left` therefore disagrees with the drawing space it
+     is compared against, by the border at one edge and by the accumulated
+     stretch at the other: on a 1100px sheet a tap landing EXACTLY on the
+     drawn dot reads as 1.26px out, which is 97 out of 100 on the pen
+     profile. A drill whose 100 depends on where the target happened to spawn
+     is not scoring the hand, and it fails the "100 must be possible" rule in
+     GAME_GUIDE.md at every position but the middle of the sheet.
+     clientWidth/clientHeight ARE the content box, and they are free here —
+     the getBoundingClientRect() above has already flushed layout for them.
+     A drill with no border gets bx = by = 0 and a scale of exactly 1, so
+     this is the plain subtraction again wherever the plain subtraction was
+     right. Guarded: a canvas laid out at zero must not divide by zero. */
   function pointerPos(ev) {
     var rect = canvas.getBoundingClientRect();
-    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+    var cw = canvas.clientWidth || rect.width;
+    var ch = canvas.clientHeight || rect.height;
+    /* what sits between the two boxes is the border, even on every sheet in
+       the arcade — half of the difference is the left/top one */
+    var bx = (rect.width - cw) / 2, by = (rect.height - ch) / 2;
+    return {
+      x: (cw > 0) ? (ev.clientX - rect.left - bx) * W / cw : 0,
+      y: (ch > 0) ? (ev.clientY - rect.top - by) * H / ch : 0,
+    };
   }
 
   canvas.addEventListener('pointerdown', function (ev) {

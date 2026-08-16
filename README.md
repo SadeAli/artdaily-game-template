@@ -28,7 +28,10 @@ this file is just the checklist.
    through it**: every stop a control you can operate, in reading order,
    focus ring visible on both sheets. Lift the pure scoring functions into
    node and check the four cases the guide names: perfect ≥ 95, garbage
-   ≤ 30, monotonic, degenerate → finite 0–100.
+   ≤ 30, monotonic, degenerate → finite 0–100. Then **land one attempt
+   perfectly and confirm it scores 100** — near a corner of the sheet, not
+   in the middle, which is the one spot where a border-box coordinate
+   mistake hides.
 5. **Repo**: create `github.com/SadeAli/artdaily-<slug>` (public), push
    `main`; Settings → Pages → deploy `main` / root. The game is now live
    at `https://sadeali.github.io/artdaily-<slug>/`.
@@ -167,7 +170,13 @@ Then the rest of the bar:
   sample at full rate, paint once a frame
 - **Correctness scaffolding in `js/game.js`**: pure scoring functions at
   the top of the file, target geometry stored as canvas fractions so a
-  rotation cannot lose the round, `report()` on exactly one path
+  rotation cannot lose the round, `report()` on exactly one path, and a
+  `pointerPos()` that maps through the canvas's **content** box. The sheet
+  is `box-sizing: border-box` with a 1px border, so
+  `getBoundingClientRect()` measures a box 2px wider than the one the
+  bitmap is painted into: the reflex `ev.clientX - rect.left` scored a tap
+  landing *exactly on the drawn dot* as 1.26px out on a 1100px sheet — 97
+  out of 100 on a pen, and a flawless round capped at 99
 - **A worked reveal**: after every tap the demo holds the ring, draws the
   truth, your mark, the gap between them and — faintly — the ring where
   the score reaches zero (stored *with* the reveal, so plugging a pen in
