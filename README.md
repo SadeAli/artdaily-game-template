@@ -59,10 +59,12 @@ first-thirty-seconds questions before anything else:
   measured on that nothing on screen ever names?
 - is the **first reveal a lesson or just a number**, and does it **stay up
   long enough to read**? Budget the beat against the text that is new on
-  that screen at ~200 wpm; the demo's was 620ms for a clause needing 1.6s,
-  which is the same as never writing it. And does round one say what the
-  score is *for*, instead of "new best!" — which is trivially true on it,
-  so branch on `report().isFirst`
+  that screen at ~200 wpm — and *count the words*, do not estimate them:
+  the demo's beat was 620ms for a clause needing 1800ms, and then 4000ms
+  for a first reveal needing 6300ms. It measures the line it is about to
+  print now (`readingMs`). And does round one say what the score is *for*,
+  instead of "new best!" — which is trivially true on it, so branch on
+  `report().isFirst`
 - does everything you teach **once** survive a press of the primary
   button? "First of the sitting" and "round 1, item 1" are the same screen
   only until a beginner presses *new round* before their first tap, which
@@ -184,10 +186,13 @@ Then the rest of the bar:
   measured on the old one), then names the miss in plain words ("a little
   high and left") from a pure function graded against the same tolerance
   as the score, with its bands cut where the score changes character so
-  the adjective never oversells the number. It holds for **1.8s — 4s on
-  the first reveal of the sitting**, which also names the dotted ring on
-  the spot, because a beat too short to read is a lesson written and then
-  wiped (`revealBeat` is pure, so the pacing is testable too). "Of the
+  the adjective never oversells the number. It holds for **1.8s — and for
+  as long as the first reveal of the sitting actually takes to read**,
+  which is 6.3s for the sentence the demo prints: that one also names the
+  dotted ring on the spot, and a beat too short to read is a lesson
+  written and then wiped. The long beat is **counted, not guessed**
+  (`readingMs` × `revealBeat`, both pure, so the pacing is testable and
+  cannot drift when you rewrite the copy; 4s stays as the floor). "Of the
   sitting" is counted by `revealsSeen`, which `newRound` never resets, so a
   beginner pressing the primary button before their first tap cannot
   downgrade that screen; and the beat is **parked while the tab is hidden**

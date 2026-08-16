@@ -95,7 +95,18 @@
      Total: junk in, a usable word out (the widest one, never a flattering
      one — a broken measurement must not read as a near miss). */
   function sizeWord(d, z) {
-    var m = Number(d), t = Number(z);
+    /* A MAGNITUDE MUST ARRIVE AS A NUMBER — no coercion. `Number(null)`,
+       `Number('')`, `Number(false)` and `Number([])` are every one of them
+       0, so a measurement that never happened coerced its way to the TOP of
+       this ladder and came back "dead on": the single most flattering word,
+       handed out for the absence of a reading. `undefined` was caught only
+       because it happens to become NaN, and `null` is the value a drill
+       actually produces when a degenerate round leaves an error unset. The
+       two callers below hand over `Math.hypot(...)`, which is always a
+       number, so this costs the template nothing and closes the hole for
+       every drill that inherits the function. */
+    if (typeof d !== 'number' || typeof z !== 'number') return 'well';
+    var m = d, t = z;
     /* `m < 0` is rejected rather than folded: a magnitude is never negative,
        so a negative one means the caller handed over a signed delta by
        mistake, and the flattering answer to a broken measurement is the
@@ -116,7 +127,10 @@
   function missPhrase(dx, dy, zero) {
     var d = Math.hypot(Number(dx), Number(dy));
     if (!isFinite(d)) return 'Off the mark';
-    var z = (isFinite(zero) && zero > 0) ? zero : 1;
+    /* `Number(...)` and not the bare value: `isFinite('88')` is true, so a
+       tolerance handed over as a numeric string used to reach sizeWord as a
+       string. It grades numbers. */
+    var z = (isFinite(zero) && zero > 0) ? Number(zero) : 1;
     var much = sizeWord(d, z);
     if (much === 'dead on') return 'Dead centre';
     var dir = missDirection(dx, dy);
@@ -163,7 +177,7 @@
      rather than print. */
   function roundBias(marks, zero) {
     if (!marks || !marks.length) return '';
-    var z = (isFinite(zero) && zero > 0) ? zero : 1;
+    var z = (isFinite(zero) && zero > 0) ? Number(zero) : 1;   /* see missPhrase */
     var n = 0, sx = 0, sy = 0, left = 0, right = 0, high = 0, low = 0;
     for (var i = 0; i < marks.length; i++) {
       var m = marks[i];
@@ -303,17 +317,19 @@
      moment they press the big primary button before tapping anything — the
      likeliest thing a beginner does with a control they do not understand
      yet. Keyed on `round === 1` it silently downgraded exactly the screen
-     the budget below was written for: the beat fell 4000ms → 1800ms, the
-     opening line stopped saying how the drill marks you, and the dotted
-     ring — the scale the printed number is measured on — was never named at
-     all, on the one screen where it is new. */
+     the budget below was written for: the beat collapsed to the repeat
+     reveal's 1800ms, the opening line stopped saying how the drill marks
+     you, and the dotted ring — the scale the printed number is measured on
+     — was never named at all, on the one screen where it is new. */
   var revealsSeen = 0;
   /* THE BEAT MUST OUTLAST THE READING, or the reveal is decoration.
      Budget it against the text that is NEW on that screen, at ~200 words
      per minute — a beginner reading unfamiliar copy while also looking at
-     a picture. On a repeat reveal only the clause changes ("Way out, low
-     and right — 0", ~1.6s); the rest of the sentence is furniture the eye
-     already knows. At 620ms, where this started, even that clause was gone
+     a picture. On a repeat reveal only the clause changes; the rest of the
+     sentence is furniture the eye already knows. The longest clause this
+     drill can print is six words ("A little low and right — 100"), which
+     is exactly 1800ms — check yours with readingMs() if you change the
+     wording. At 620ms, where this started, even that clause was gone
      before it could be read: the drill did the whole job of teaching and
      then wiped the lesson half a second later. It was worse for a
      screen-reader player, because #hint is the drill's ONE live region and
@@ -321,17 +337,46 @@
      Four of these add ~7s to a round — a beat, not a slideshow. */
   var REVEAL_MS = 1800;
   /* The FIRST reveal of the sitting is the only one where nothing is
-     furniture yet: a dashed line, a dotted ring, a mark and a sentence,
-     all new at once, plus the line that names the ring. Budget the whole
-     score sentence as new (~3.1s) with room for the ring note, which is
-     read while looking at the thing it points to. It happens once. */
-  var FIRST_REVEAL_MS = 4000;
+     furniture yet: a dashed line, a dotted ring, a mark and a sentence, all
+     new at once, plus the line that names the ring. So it is the one beat
+     that must be budgeted against the WHOLE sentence — and a hand-tuned
+     constant for that is a number that goes stale the moment anyone edits
+     the copy, which is exactly what happened here. 4000ms was set for "the
+     score sentence (~3.1s) with room for the ring note": the score sentence
+     is twelve words, which is 3.6s, and the ring note is another nine —
+     2.7s — so the whole thing needs 6.3s and got 4.0. A third of the first
+     lesson in the drill was being wiped before it could be read, on the one
+     screen the entire reveal design was written for.
+     So MEASURE IT instead of guessing it. The floor still stands for a
+     drill whose first reveal is terser than this one's. */
+  var FIRST_REVEAL_MIN_MS = 4000;   /* a floor, not the budget — see revealBeat */
+  /* ~200 words a minute: a beginner reading unfamiliar copy while also
+     looking at a picture, and about the rate a screen reader speaks the
+     same line out of #hint. */
+  var MS_PER_WORD = 60000 / 200;
+
+  /* Words, not tokens. An em dash is a pause, not a word — counting the
+     "—" in "A hair low and right — 84" as one is a whole extra 300ms of
+     budget bought for a character nobody reads aloud, and rounding the
+     other way is how a "budget" quietly becomes a guess. Pure and total:
+     anything at all in, a finite number of milliseconds out. */
+  function readingMs(text) {
+    var parts = String(text === null || text === undefined ? '' : text).split(/\s+/);
+    var n = 0;
+    for (var i = 0; i < parts.length; i++) if (/[0-9a-z]/i.test(parts[i])) n++;
+    return n * MS_PER_WORD;
+  }
 
   /* Pure, so the pacing can be reasoned about (and tested) without a canvas.
      `seen` is how many reveals this SITTING has already shown — not how far
-     into a round we are, and not which round it is. See revealsSeen. */
-  function revealBeat(seen) {
-    return seen ? REVEAL_MS : FIRST_REVEAL_MS;
+     into a round we are, and not which round it is. See revealsSeen.
+     `text` is the line about to be printed, and it is only consulted for the
+     first reveal: from the second on, only the clause inside that sentence
+     is new and the rest is furniture the eye already knows, so measuring the
+     whole sentence again would double every beat into a slideshow. */
+  function revealBeat(seen, text) {
+    if (seen) return REVEAL_MS;
+    return Math.max(FIRST_REVEAL_MIN_MS, readingMs(text));
   }
 
   function clearReveal() {
@@ -626,6 +671,15 @@
     targetIdx += 1;
     var seen = revealsSeen;      /* reveals shown BEFORE this one, this sitting */
     revealsSeen += 1;
+    var words = missPhrase(dx, dy, zero);
+    /* The sentence is built BEFORE the beat, because the beat is budgeted
+       from it — see revealBeat. The dotted ring appears for the first time
+       UNDER this line, and an unexplained new circle is jargon that happens
+       to be drawn instead of written. Named once, on the spot, on the only
+       screen where it is new — the third first-thirty-seconds question in
+       GAME_GUIDE.md applies to what you draw, not only to what you type. */
+    var line = tapWords(words, acc) + '.' +
+      (seen ? '' : ' The dotted ring is where a tap stops scoring.');
     reveal = {
       tf: target,
       dx: dx,
@@ -640,19 +694,14 @@
          number is history; the scale it was measured against is history
          too, and history does not get re-judged. */
       zero: zero,
-      words: missPhrase(dx, dy, zero),
+      words: words,
       acc: Math.round(acc),   /* what the picture is worth, for describeSheet() */
       /* The beat is kept WITH the reveal so the pause/resume below can hand
-         back the same budget it interrupted, rather than recomputing one. */
-      beat: revealBeat(seen),
+         back the same budget it interrupted, rather than recomputing one —
+         and so it is budgeted against the sentence that is actually up. */
+      beat: revealBeat(seen, line),
     };
-    /* The dotted ring appears for the first time UNDER this sentence, and
-       an unexplained new circle is jargon that happens to be drawn instead
-       of written. Named once, on the spot, on the only screen where it is
-       new — the third first-thirty-seconds question in GAME_GUIDE.md
-       applies to what you draw, not only to what you type. */
-    hint.textContent = tapWords(reveal.words, acc) + '.' +
-      (seen ? '' : ' The dotted ring is where a tap stops scoring.');
+    hint.textContent = line;
     draw();
     /* The last tap does NOT wait on the beat: finishing is synchronous, so
        report() cannot be raced by "new round" landing during the reveal.
